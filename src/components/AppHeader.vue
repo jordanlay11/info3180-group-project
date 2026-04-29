@@ -23,6 +23,15 @@
               <RouterLink class="nav-link" to="/about">About</RouterLink>
             </li>
           </ul>
+          <ul class="navbar-nav">
+            
+             <li class="nav-item">
+              <RouterLink class="nav-link" to="{{ url_for('logout') }}">logout</RouterLink>
+            </li>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/login">login</RouterLink>
+            </li>
+          </ul>
         </div>
       </div>
     </nav>
