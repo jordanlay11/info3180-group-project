@@ -72,15 +72,6 @@
             </select>
         </div>
 
-        <div class="form-group">
-            <label for="age">Age</label>
-            <input
-                id="age"
-                type="number"
-                v-model.trim="age"
-                placeholder="25"
-            />
-        </div>
 
          <div class="form-group">
             <label for="date_of_birth">Date of Birth</label>
@@ -120,7 +111,6 @@
         username: '',
         Email: '',
         password: '',
-        age: '',
         gender: '',
         date_of_birth: '',
     });
@@ -240,7 +230,6 @@
                             Email: '',
                             password: '',
                             gender: '',
-                            age: '',
                             date_of_birth: ''
                         };
                     } else {
