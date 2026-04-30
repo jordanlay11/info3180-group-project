@@ -5,11 +5,12 @@ Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
 
-from app import app
+from app import app, db
 from flask import render_template, request, jsonify, send_file
 import os
-from app.models import User, Profile, Interest, Like, Match, Message, Report
-from . import db
+from app.models import User, location, Profile_Picure, visibility, Bio, Interest, Like, Match, Message, Report
+#from . import db
+from app.forms import LoginForm, SignupForm
 
 
 ###
@@ -20,7 +21,54 @@ from . import db
 def index():
     return jsonify(message="This is the beginning of our API")
 
+#login route
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    form = LoginForm()
+    if request.method == 'POST':
+        data = request.get_json()
+        #username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
 
+        if not email or not password: #or not username:
+            return jsonify({'error': 'incorrect Email or Password'}), 400
+
+        if User.query.filter_by(email=email).first():
+            
+            
+            return jsonify({'success': 'User logged in successfully'}), 200
+
+
+
+#signup route
+@app.route('/register', methods=['POST', 'GET'])
+def signup():
+    form = SignupForm()
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        age = data.get('age')
+        email = data.get('email')
+
+        if not username or not password or not first_name or not last_name or not age or not email:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already exists'}), 400
+
+        new_user = User(username=username, password=password, first_name=first_name, last_name=last_name, age=age, email=email)
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({'message': 'User created successfully'}), 201
+    else:
+        return jsonify({'error': 'Invalid request method'}), 405
+
+    #return render_template('signup.html')
 ###
 # The functions below should be applicable to all Flask apps.
 ###
