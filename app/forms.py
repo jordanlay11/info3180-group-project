@@ -1,23 +1,36 @@
-# Add any form classes for Flask-WTF herefrom flask_wtf import FlaskForm
+
+
+# Add any form classes for Flask-WTF here
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, FileField
-from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms.validators import InputRequired
+from wtforms import StringField, TextAreaField, FileField, SelectField
+from flask_wtf.file import FileField, FileAllowed
+from wtforms.validators import InputRequired, Email, Length, Optional
+
 
 class LoginForm(FlaskForm):
-    email = StringField('email', validators=[InputRequired()])
+    email = StringField('Email', validators=[InputRequired(), Email()])
     password = StringField('Password', validators=[InputRequired()])
-    #email = StringField('Email', validators=[InputRequired()])
+
 
 class SignupForm(FlaskForm):
-    username = StringField('Username', validators=[InputRequired()])
-    password = StringField('Password', validators=[InputRequired()])
-    first_name = StringField('First Name', validators=[InputRequired()])
-    last_name = StringField('Last Name', validators=[InputRequired()])
-    age = StringField('Age', validators=[InputRequired()])
-    email = StringField('Email', validators=[InputRequired()])
+    """Matches your Vue registration form fields"""
+    fname = StringField('First Name', validators=[InputRequired(), Length(max=60)])
+    lname = StringField('Last Name', validators=[InputRequired(), Length(max=60)])
+    username = StringField('Username', validators=[InputRequired(), Length(min=3, max=80)])
+    email = StringField('Email', validators=[InputRequired(), Email()])
+    password = StringField('Password', validators=[InputRequired(), Length(min=6)])
+    gender = SelectField('Gender', choices=[('m', 'Male'), ('f', 'Female'), ('o', 'Other')], validators=[InputRequired()])
+    date_of_birth = StringField('Date of Birth', validators=[InputRequired()])
+
 
 class ProfileForm(FlaskForm):
-    bio = TextAreaField('Bio')
-    profile_photo = FileField('Profile Photo', validators=[FileRequired(), FileAllowed(['jpg', 'png'], 'Images only!')])
-    
+    """Profile form for later use"""
+    bio = TextAreaField('Bio', validators=[Optional()])
+    location = StringField('Location', validators=[Optional(), Length(max=200)])
+    profile_photo = FileField('Profile Photo', validators=[
+        FileAllowed(['jpg', 'jpeg', 'png', 'gif'], 'Images only!'),
+        Optional()
+    ])
+    visibility = SelectField('Profile Visibility', choices=[('true', 'Public'), ('false', 'Private')], default='true')
+    occupation = StringField('Occupation', validators=[Optional(), Length(max=100)])
+    zodiac_sign = StringField('Zodiac Sign', validators=[Optional(), Length(max=20)])
