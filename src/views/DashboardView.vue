@@ -1,119 +1,158 @@
 <template>
   <div class="dashboard-container">
     <div class="dashboard-header">
-      <h1>Browse Potential Matches</h1>
+      <h1>Find Your Match</h1>
       <p>Discover people who share your interests</p>
     </div>
 
-    <!-- Search Filters Section -->
-    <div class="filters-card">
-      <div class="filters-header">
-        <h3>🔍 Filter Matches</h3>
-        <button @click="resetFilters" class="reset-btn">Reset Filters</button>
+    <!-- ========================================== -->
+    <!-- SECTION 1: SEARCH BAR (Always visible) -->
+    <!-- ========================================== -->
+    <div class="search-section">
+      <div class="filters-card">
+        <div class="filters-header">
+          <h3>🔍 Search Profiles</h3>
+          <button @click="resetFilters" class="reset-btn">Reset Filters</button>
+        </div>
+
+        <div class="filters-grid">
+          <!-- Location Filter -->
+          <div class="filter-group">
+            <label>📍 Location</label>
+            <input 
+              type="text" 
+              v-model="filters.location" 
+              placeholder="Filter by location..."
+              @keyup.enter="search"
+            />
+          </div>
+
+          <!-- Age Range Filter -->
+          <div class="filter-group">
+            <label>📅 Age Range</label>
+            <div class="age-range">
+              <input 
+                type="number" 
+                v-model.number="filters.min_age" 
+                placeholder="Min"
+                min="18"
+                max="100"
+              />
+              <span>to</span>
+              <input 
+                type="number" 
+                v-model.number="filters.max_age" 
+                placeholder="Max"
+                min="18"
+                max="100"
+              />
+            </div>
+          </div>
+
+          <!-- Interests Filter -->
+          <div class="filter-group">
+            <label>⭐ Interests</label>
+            <div class="interests-toggle">
+              <button 
+                @click="showInterestFilters = !showInterestFilters" 
+                class="toggle-interests-btn"
+              >
+                {{ showInterestFilters ? 'Hide ▼' : 'Show Interests ▼' }}
+              </button>
+            </div>
+            <div v-if="showInterestFilters" class="interests-list">
+              <label 
+                v-for="interest in allInterests" 
+                :key="interest"
+                class="interest-checkbox"
+              >
+                <input 
+                  type="checkbox" 
+                  :value="interest" 
+                  v-model="filters.interests_array"
+                />
+                {{ interest }}
+              </label>
+            </div>
+          </div>
+
+          <!-- Sort Options -->
+          <div class="filter-group">
+            <label>📊 Sort By</label>
+            <select v-model="filters.sort_by" @change="search">
+              <option value="newest">Newest First</option>
+              <option value="age_asc">Youngest First</option>
+              <option value="age_desc">Oldest First</option>
+              <option value="location_asc">Location (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Search Buttons -->
+        <div class="search-actions">
+          <button @click="search" class="search-btn" :disabled="searching">
+            {{ searching ? 'Searching...' : '🔍 Search' }}
+          </button>
+        </div>
       </div>
 
-      <div class="filters-grid">
-        <!-- Location Filter -->
-        <div class="filter-group">
-          <label>📍 Location</label>
-          <input 
-            type="text" 
-            v-model="filters.location" 
-            placeholder="Filter by location..."
-            @keyup.enter="search"
+      <!-- Search Results (ONLY visible after search) -->
+      <div v-if="hasSearched" class="results-section">
+        <div class="results-header">
+          <div class="results-header-left">
+            <h3>Search Results ({{ searchResults.length }})</h3>
+            <button @click="clearResults" class="clear-results-btn">✗ Hide Results</button>
+          </div>
+          <p v-if="searchResults.length === 0 && !searching">No results found. Try different filters.</p>
+        </div>
+
+        <div v-if="searching" class="loading-spinner">
+          <div class="spinner"></div>
+        </div>
+
+        <div v-else class="profiles-grid">
+          <ProfileCard 
+            v-for="profile in searchResults" 
+            :key="profile.id"
+            :profile="profile"
+            :show-like-buttons="true"
+            @like="handleLike"
+            @pass="handlePass"
+            @favorite-toggled="refreshData"
           />
         </div>
-
-        <!-- Age Range Filter -->
-        <div class="filter-group">
-          <label>📅 Age Range</label>
-          <div class="age-range">
-            <input 
-              type="number" 
-              v-model.number="filters.min_age" 
-              placeholder="Min"
-              min="18"
-              max="100"
-            />
-            <span>to</span>
-            <input 
-              type="number" 
-              v-model.number="filters.max_age" 
-              placeholder="Max"
-              min="18"
-              max="100"
-            />
-          </div>
-        </div>
-
-        <!-- Interests Filter -->
-        <div class="filter-group">
-          <label>⭐ Interests</label>
-          <div class="interests-toggle">
-            <button 
-              @click="showInterestFilters = !showInterestFilters" 
-              class="toggle-interests-btn"
-            >
-              {{ showInterestFilters ? 'Hide Interest Filters ▲' : 'Show Interest Filters ▼' }}
-            </button>
-          </div>
-          <div v-if="showInterestFilters" class="interests-list">
-            <label 
-              v-for="interest in allInterests" 
-              :key="interest"
-              class="interest-checkbox"
-            >
-              <input 
-                type="checkbox" 
-                :value="interest" 
-                v-model="filters.interests_array"
-              />
-              {{ interest }}
-            </label>
-          </div>
-        </div>
-
-        <!-- Sort Options -->
-        <div class="filter-group">
-          <label>📊 Sort By</label>
-          <select v-model="filters.sort_by">
-            <option value="newest">Newest First</option>
-            <option value="age_asc">Youngest First</option>
-            <option value="age_desc">Oldest First</option>
-            <option value="location_asc">Location (A-Z)</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Search Buttons -->
-      <div class="search-actions">
-        <button @click="search" class="search-btn" :disabled="loading">
-          {{ loading ? 'Searching...' : '🔍 Search Matches' }}
-        </button>
-        <button @click="resetFilters" class="clear-btn">Clear All Filters</button>
       </div>
     </div>
 
-    <!-- Results Section -->
-    <div class="results-section">
-      <div class="results-header">
-        <h3>Matches ({{ browseResults.length }})</h3>
-        <p v-if="profiles.length === 0 && !loading">No matches found. Try adjusting your filters.</p>
+    <!-- ========================================== -->
+    <!-- SECTION 2: YOUR MATCHES (Always visible) -->
+    <!-- ========================================== -->
+    <div class="matches-section">
+      <div class="section-header">
+        <h2>⭐ Recommendations</h2>
+        <p>Latest profiles that match your interests</p>
       </div>
 
-      <!-- Loading Spinner -->
-      <div v-if="loading" class="loading-spinner">
+      <div v-if="matchesLoading" class="loading-spinner">
         <div class="spinner"></div>
         <p>Finding your matches...</p>
       </div>
 
-      <!-- Results Grid -->
+      <div v-else-if="algorithmMatches.length === 0" class="empty-matches">
+        <p>No matches yet. Complete your profile to get better recommendations!</p>
+      </div>
+
       <div v-else class="profiles-grid">
         <ProfileCard 
-          v-for="profile in browseResults" 
-          :key="profile.id"
-          :profile="profile"
-          @favorite-toggled="onFavoriteToggled"
+          v-for="match in algorithmMatches" 
+          :key="match.id"
+          :profile="match"
+          :show-like-buttons="true"
+          :match-score="match.match_score"
+          :match-reasons="match.match_reasons"
+          @like="handleLike"
+          @pass="handlePass"
+          @favorite-toggled="refreshData"
         />
       </div>
     </div>
@@ -122,20 +161,21 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ProfileCard from '@/components/ProfileCard.vue'
-import MatchCard from '@/components/MatchCard.vue'
 
-// State
+const router = useRouter()
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-// reactive variables
-const browseResults = ref([])      
-const loading = ref(false)          
-
-const profiles = ref([])
+// ==========================================
+// SEARCH SECTION
+// ==========================================
+const searchResults = ref([])
+const searching = ref(false)
+const hasSearched = ref(false)
 const allInterests = ref([])
 const showInterestFilters = ref(false)
 
-// Filters
 const filters = reactive({
   location: '',
   min_age: '',
@@ -145,21 +185,13 @@ const filters = reactive({
   sort_by: 'newest'
 })
 
-//matches section
-const mutualMatches = ref([])
-const loadingMatches = ref(false)
-const currentUser = ref(null)
-
-// Watch interests_array to update interests string
 watch(() => filters.interests_array, (newVal) => {
   filters.interests = newVal.join(',')
 }, { deep: true })
 
-
-
-// Search function
 const search = async () => {
-  loading.value = true
+  searching.value = true
+  hasSearched.value = true
   
   const params = new URLSearchParams()
   if (filters.location) params.append('location', filters.location)
@@ -169,29 +201,31 @@ const search = async () => {
   if (filters.sort_by) params.append('sort_by', filters.sort_by)
   
   try {
-    // Use relative URL - Vite proxy will forward to backend
-    const response = await fetch(`/api/search?${params.toString()}`, {
+    const response = await fetch(`${apiUrl}/api/search?${params.toString()}`, {
       credentials: 'include'
     })
-    
     const data = await response.json()
-    
     if (data.success) {
-      browseResults.value = data.data
-    } else {
-      console.error('Search failed:', data.error)
+      searchResults.value = data.data
     }
   } catch (error) {
-    console.error('Error searching profiles:', error)
+    console.error('Error searching:', error)
   } finally {
-    loading.value = false
+    searching.value = false
   }
 }
 
-// Load all interests for filters
+const clearResults = () => {
+  searchResults.value = []
+  hasSearched.value = false
+  resetFilters()
+}
+
 const loadInterests = async () => {
   try {
-    const response = await fetch('/api/search/interests')
+    const response = await fetch(`${apiUrl}/api/search/interests`, {
+      credentials: 'include'
+    })
     const data = await response.json()
     if (data.success) {
       allInterests.value = data.data
@@ -201,7 +235,6 @@ const loadInterests = async () => {
   }
 }
 
-// Reset all filters
 const resetFilters = () => {
   filters.location = ''
   filters.min_age = ''
@@ -209,19 +242,101 @@ const resetFilters = () => {
   filters.interests_array = []
   filters.interests = ''
   filters.sort_by = 'newest'
-  search()
 }
 
-// Handle favorite toggled event
-const onFavoriteToggled = (profileId) => {
-  
-  search()
+// ==========================================
+// MATCHES SECTION (Latest matching profiles)
+// ==========================================
+const algorithmMatches = ref([])
+const matchesLoading = ref(false)
+
+const loadAlgorithmMatches = async () => {
+  matchesLoading.value = true
+  try {
+    const response = await fetch(`${apiUrl}/api/matching/latest`, {
+      credentials: 'include'
+    })
+    console.log('Fetching from URL:', url)
+    const data = await response.json()
+    console.log('API Response for matches:', data)  // Debug: see what data looks like
+    
+    if (data.success) {
+      // The API returns data.data directly as profile objects
+      algorithmMatches.value = data.data.map(profile => ({
+        id: profile.id,
+        name: profile.name,
+        age: profile.age,
+        location: profile.location,
+        bio: profile.bio,
+        interests: profile.interests || [],
+        photo_url: profile.photo_url,
+        occupation: profile.occupation,
+        match_score: profile.match_score || null,
+        match_reasons: profile.match_reasons || []
+      }))
+    }
+  } catch (error) {
+    console.error('Error loading algorithm matches:', error)
+  } finally {
+    matchesLoading.value = false
+  }
+}
+// ==========================================
+// LIKE / PASS HANDLERS
+// ==========================================
+const handleLike = async (profileId) => {
+  try {
+    const response = await fetch(`${apiUrl}/api/like/${profileId}`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+    const data = await response.json()
+    if (data.success) {
+      if (data.mutual_match) {
+        alert(`🎉 It's a match! ${data.match_user?.name || 'Someone'} liked you back!`)
+        // Optionally redirect to matches page
+        // router.push('/matches')
+      }
+      // Refresh both sections
+      if (hasSearched.value) {
+        search()
+      }
+      loadAlgorithmMatches()
+    }
+  } catch (error) {
+    console.error('Error liking profile:', error)
+  }
 }
 
-// Load data on mount
+const handlePass = async (profileId) => {
+  try {
+    await fetch(`${apiUrl}/api/pass/${profileId}`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+    // Refresh both sections
+    if (hasSearched.value) {
+      search()
+    }
+    loadAlgorithmMatches()
+  } catch (error) {
+    console.error('Error passing on profile:', error)
+  }
+}
+
+const refreshData = () => {
+  if (hasSearched.value) {
+    search()
+  }
+  loadAlgorithmMatches()
+}
+
+// ==========================================
+// ON MOUNTED
+// ==========================================
 onMounted(() => {
   loadInterests()
-  search()
+  loadAlgorithmMatches()
 })
 </script>
 
@@ -247,6 +362,22 @@ onMounted(() => {
 .dashboard-header p {
   color: #666;
   font-size: 1.1rem;
+}
+
+/* Section Headers */
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.section-header p {
+  color: #666;
+  font-size: 0.9rem;
 }
 
 /* Filters Card */
@@ -381,13 +512,9 @@ onMounted(() => {
   background: #f0f0f0;
 }
 
-.interest-checkbox input {
-  margin: 0;
-}
-
 .search-actions {
   display: flex;
-  gap: 15px;
+  justify-content: center;
   margin-top: 10px;
 }
 
@@ -395,12 +522,12 @@ onMounted(() => {
   background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
   color: white;
   border: none;
-  padding: 12px 24px;
+  padding: 12px 40px;
   border-radius: 40px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s;
 }
 
 .search-btn:hover:not(:disabled) {
@@ -413,40 +540,69 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.clear-btn {
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  padding: 12px 24px;
-  border-radius: 40px;
-  font-size: 1rem;
-  cursor: pointer;
-  color: #666;
-  transition: all 0.2s;
-}
-
-.clear-btn:hover {
-  background: #e0e0e0;
-}
-
 /* Results Section */
 .results-section {
   margin-top: 20px;
+  margin-bottom: 50px;
 }
 
 .results-header {
   margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
-.results-header h3 {
-  font-size: 1.3rem;
-  color: #333;
+.results-header-left {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
-/* Profiles Grid */
+.results-header-left h3 {
+  font-size: 1.2rem;
+  color: #555;
+  margin: 0;
+}
+
+.clear-results-btn {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 6px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.clear-results-btn:hover {
+  background: #f5f5f5;
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+/* Matches Section */
+.matches-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 2px solid #eee;
+}
+
+/* Grids */
 .profiles-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
+}
+
+.empty-matches {
+  text-align: center;
+  padding: 60px;
+  background: #f9f9f9;
+  border-radius: 16px;
+  color: #888;
 }
 
 /* Loading Spinner */
@@ -484,8 +640,9 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
   
-  .search-actions {
+  .results-header-left {
     flex-direction: column;
+    align-items: flex-start;
   }
   
   .dashboard-header h1 {

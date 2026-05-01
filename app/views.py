@@ -10,7 +10,7 @@ This file creates your application.
 from app import app, db
 from flask import render_template, request, jsonify, send_file, session
 import os
-from app.models import Favorite, User, Profile, Interest, Like, Match, Message, Report 
+from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report 
 #from . import db
 from app.forms import LoginForm, SignupForm
 from datetime import date, datetime  
@@ -420,6 +420,267 @@ def check_favorite(profile_id):
         'favorite_id': favorite.id if favorite else None
     }), 200
 
+
+
+
+# MATCHING SYSTEM ENDPOINTS
+# ================================================
+
+@app.route('/api/matching/recommendations', methods=['GET'])
+def get_recommendations():
+    """
+    Get recommended profiles based on matching algorithm
+    """
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    current_user = User.query.get(current_user_id)
+    current_profile = current_user.profile if current_user else None
+    
+    # Get IDs of users already liked or passed
+    liked_ids = [like.to_user_id for like in Like.query.filter_by(from_user_id=current_user_id).all()]
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    excluded_ids = set(liked_ids + passed_ids + [current_user_id])
+    
+    # Base query - exclude self, liked, passed
+    query = User.query.join(Profile).filter(
+        User.id.notin_(excluded_ids),
+        Profile.visibility == True
+    )
+    
+    recommendations = []
+    
+    for user in query.all():
+        profile = user.profile
+        if not profile:
+            continue
+            
+        match_score = 0
+        match_reasons = []
+        
+       
+        if current_profile and profile.location == current_profile.location:
+            match_score += 25
+            match_reasons.append('📍 Same location')
+        elif current_profile and profile.location:
+            match_score += 10
+            match_reasons.append('📍 Nearby')
+        
+        # ii) Age range preferences
+        user_age = user.age
+        if user_age:
+            
+            pref_min = current_profile.preferred_age_min if current_profile else 18
+            pref_max = current_profile.preferred_age_max if current_profile else 99
+            
+            if pref_min <= user_age <= pref_max:
+                match_score += 20
+                match_reasons.append(f'📅 Age {user_age} (within {pref_min}-{pref_max})')
+        
+        # iii) Shared interests
+        user_interests = set([i.interest for i in user.interests])
+        current_interests = set([i.interest for i in current_user.interests])
+        shared = user_interests & current_interests
+        shared_count = len(shared)
+        
+        if shared_count > 0:
+            match_score += shared_count * 10
+            match_reasons.append(f'⭐ {shared_count} shared interests: {", ".join(list(shared)[:3])}')
+        
+        # iv) Additional matching criterion: Occupation
+        if current_profile and profile.occupation:
+            if current_profile.occupation == profile.occupation:
+                match_score += 15
+                match_reasons.append('💼 Same occupation')
+        
+       
+        if match_score > 0:
+            recommendations.append({
+                'profile': {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': f"{user.fname} {user.lname}",
+                    'age': user_age,
+                    'gender': user.gender,
+                    'location': profile.location,
+                    'bio': profile.bio,
+                    'interests': list(user_interests),
+                    'occupation': profile.occupation,
+                    'photo_url': profile.profile_photo
+                },
+                'match_score': match_score,
+                'match_reasons': match_reasons,
+                'shared_interests': list(shared)
+            })
+    
+    # Sort by match score (highest first)
+    recommendations.sort(key=lambda x: x['match_score'], reverse=True)
+    
+    return jsonify({
+        'success': True,
+        'count': len(recommendations),
+        'data': recommendations
+    }), 200
+
+
+@app.route('/api/matches', methods=['GET'])
+def get_matches():
+    """Get mutual matches (users who liked you back)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Users who liked current user
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    # Users that current user liked
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    # Mutual matches = both conditions
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    
+    matches = []
+    for user_id in mutual_match_ids:
+        user = User.query.get(user_id)
+        profile = user.profile if user else None
+        
+        if user and profile and profile.visibility:
+            
+            like = Like.query.filter_by(from_user_id=user_id, to_user_id=current_user_id).first()
+            
+            matches.append({
+                'id': user.id,
+                'username': user.username,
+                'name': f"{user.fname} {user.lname}",
+                'age': user.age,
+                'location': profile.location,
+                'bio': profile.bio,
+                'interests': [i.interest for i in user.interests],
+                'photo_url': profile.profile_photo,
+                'matched_at': like.created_at.isoformat() if like else None
+            })
+    
+    return jsonify({'success': True, 'data': matches}), 200
+
+
+@app.route('/api/like/<int:profile_id>', methods=['POST'])
+def like_profile(profile_id):
+    """Like a profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    
+    existing = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if existing:
+        return jsonify({'success': False, 'message': 'Already liked'}), 409
+    
+    
+    new_like = Like(from_user_id=current_user_id, to_user_id=profile_id)
+    db.session.add(new_like)
+    db.session.commit()
+    
+    
+    mutual = Like.query.filter_by(
+        from_user_id=profile_id,
+        to_user_id=current_user_id
+    ).first()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Liked!',
+        'mutual_match': mutual is not None,
+        'match_user': {
+            'id': mutual.from_user_id if mutual else None,
+            'name': User.query.get(profile_id).fname if mutual else None
+        } if mutual else None
+    }), 201
+
+
+@app.route('/api/pass/<int:profile_id>', methods=['POST'])
+def pass_profile(profile_id):
+    """Pass on a profile (won't show again)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    
+    existing = Pass.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if not existing:
+        new_pass = Pass(from_user_id=current_user_id, to_user_id=profile_id)
+        db.session.add(new_pass)
+        db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Passed'}), 200
+
+
+@app.route('/api/matches/count', methods=['GET'])
+def get_match_count():
+    """Get count of mutual matches"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    mutual_match_count = len(set(liked_by_others_ids) & set(current_user_likes_ids))
+    
+    return jsonify({'success': True, 'count': mutual_match_count}), 200
+
+
+
+@app.route('/api/matching/latest', methods=['GET'])
+def get_latest_matching_profiles():
+    # ... your code ...
+    
+    results = []
+    for user in query.all():
+        results.append({
+            'id': user.id,
+            'name': f"{user.fname} {user.lname}",
+            'age': user.age,
+            'location': user.profile.location if user.profile else None,
+            'bio': user.profile.bio if user.profile else None,
+            'interests': [i.interest for i in user.interests],
+            'photo_url': user.profile.profile_photo if user.profile else None,
+            'occupation': user.profile.occupation if user.profile else None
+        })
+    
+    return jsonify({'success': True, 'data': results}), 200
+
+
+
+@app.route('/api/liked/check/<int:profile_id>', methods=['GET'])
+def check_liked(profile_id):
+    """Check if current user has liked a profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    liked = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    return jsonify({
+        'success': True,
+        'is_liked': liked is not None
+    }), 200
 
 
 
