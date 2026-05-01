@@ -61,7 +61,8 @@ def login():
             return jsonify({'success': 'User logged in successfully'}), 200
         else:
             return jsonify({'error': 'Invalid credentials'}), 401
-
+        
+    return jsonify({'message': 'Please use POST to login'}), 405
 
 #signup route 
 @app.route('/register', methods=['POST', 'GET'])
@@ -115,6 +116,14 @@ def signup():
         return jsonify({'message': 'User created successfully'}), 201
     else:
         return jsonify({'error': 'Invalid request method'}), 405
+
+
+
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': 'Logged out successfully'}), 200
 
 
 ##########################################################################
