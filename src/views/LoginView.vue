@@ -57,11 +57,12 @@ export default {
       password: "",
       error: "",
       loading: false,
-      showPassword: false
+      showPassword: false,
+      apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000'
     };
   },
   methods: {
-    handleLogin() {
+    async handleLogin() {
       this.error = "";
 
       if (!this.email) {
@@ -82,12 +83,32 @@ export default {
 
       this.loading = true;
 
-      // Temporary demo login
-      setTimeout(() => {
+      try {
+        const response = await fetch(`${this.apiUrl}/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: this.email,
+            password: this.password
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.status === 200 && data.success) {
+          this.$router.push('/dashboard');
+        } else {
+          this.error = data.error || "Login failed. Please try again.";
+        }
+      } catch (error) {
+        console.error("Error logging in:", error);
+        this.error = "An error occurred. Please try again.";
+      } finally {
         this.loading = false;
-        alert("Login successful.");
-        this.$router.push("/");
-      }, 1000);
+      }
     }
   }
 };

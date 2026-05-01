@@ -3,34 +3,38 @@
     <div class="login-card">
       <h2>Register</h2>
 
-      <form @submit.prevent="handleRegister" id="registerForm">
+      <form @submit.prevent="handleRegister">
         <div class="form-group">
-            <label for="fname">First Name</label>
-            <input
-                id="name"
-                type="text"
-                v-model.trim="name"
-                placeholder="Amy"
-            />
+          <label for="fname">First Name</label>
+          <input
+            id="fname"
+            type="text"
+            v-model="formData.fname"
+            placeholder="Amy"
+            required
+          />
         </div>
 
         <div class="form-group">
-            <label for="lname">Last Name</label>
-            <input
-                id="name"
-                type="text"
-                v-model.trim="name"
-                placeholder="Rose"
-            />
+          <label for="lname">Last Name</label>
+          <input
+            id="lname"
+            type="text"
+            v-model="formData.lname"
+            placeholder="Rose"
+            required
+          />
         </div>
+
         <div class="form-group">
-            <label for="username">Username</label>
-            <input
-                id="username"
-                type="text"
-                v-model.trim="username"
-                placeholder="amyrose"
-            />
+          <label for="username">Username</label>
+          <input
+            id="username"
+            type="text"
+            v-model="formData.username"
+            placeholder="amyrose"
+            required
+          />
         </div>
 
         <div class="form-group">
@@ -38,8 +42,9 @@
           <input
             id="email"
             type="email"
-            v-model.trim="email"
-            placeholder="grace@example.com"
+            v-model="formData.email"
+            placeholder="amy@example.com"
+            required
           />
         </div>
 
@@ -49,8 +54,9 @@
             <input
               id="password"
               :type="showPassword ? 'text' : 'password'"
-              v-model="password"
+              v-model="formData.password"
               placeholder="••••••••"
+              required
             />
             <button
               type="button"
@@ -63,194 +69,141 @@
         </div>
 
         <div class="form-group">
-            <label for="gender">Gender</label>
-            <select id="gender" v-model="gender">
-                <option value="" disabled>Select your gender</option>
-                <option value="m">Male</option>
-                <option value="f">Female</option>
-                <option value="o">Other</option>
-            </select>
+          <label for="gender">Gender</label>
+          <select id="gender" v-model="formData.gender" required>
+            <option value="" disabled>Select your gender</option>
+            <option value="m">Male</option>
+            <option value="f">Female</option>
+            <option value="o">Other</option>
+          </select>
         </div>
 
-
-         <div class="form-group">
-            <label for="date_of_birth">Date of Birth</label>
-            <input
-                id="date_of_birth"
-                type="date"
-                v-model.trim="date_of_birth"
-            />
+        <div class="form-group">
+          <label for="date_of_birth">Date of Birth</label>
+          <input
+            id="date_of_birth"
+            type="date"
+            v-model="formData.date_of_birth"
+            required
+          />
         </div>
 
         <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="successMessage" class="success">{{ successMessage }}</p>
 
         <button type="submit" class="login-btn" :disabled="loading">
-          {{ loading ? 'Registering...' : 'Registered' }}
+          {{ loading ? 'Registering...' : 'Register' }}
         </button>
       </form>
-    
-        <p class="signup-text">
-            Already have an account?
-            <router-link to="/login">Login here</router-link>
-        </p>
+
+      <p class="signup-text">
+        Already have an account?
+        <router-link to="/login">Login here</router-link>
+      </p>
     </div>
   </div>
 </template>
 
 <script>
-    import { ref, onMounted } from 'vue';
-    const csrf_token = ref('');
+export default {
+  name: "RegisterView",
+  data() {
+    return {
+      formData: {
+        fname: "",
+        lname: "",
+        username: "",
+        email: "",
+        password: "",
+        gender: "",
+        date_of_birth: ""
+      },
+      error: "",
+      successMessage: "",
+      loading: false,
+      showPassword: false
+    };
+  },
+  methods: {
+    async handleRegister() {
+      // Reset messages
+      this.error = "";
+      this.successMessage = "";
 
-    const successMessage = ref('');
+      // Validate email
+      if (!this.formData.email) {
+        this.error = "Email is required.";
+        return;
+      }
 
-    const errorMessage = ref([]);
+      // Validate email format
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(this.formData.email)) {
+        this.error = "Please enter a valid email address.";
+        return;
+      }
 
-    const formData = ref({
-        fname: '',
-        lname: '',
-        username: '',
-        Email: '',
-        password: '',
-        gender: '',
-        date_of_birth: '',
-    });
-    
-    /*
-    function getCsrfToken() {
-        fetch('/api/v1/csrf-token')
-            .then(response => response.json())
-            .then(data => {
-                console.log(data);
-                csrf_token.value = data.csrf_token;
-            })
-            .catch(error => {
-            console.error('Error fetching CSRF token:', error);
-            });
-    }
+      // Validate password
+      if (!this.formData.password) {
+        this.error = "Password is required.";
+        return;
+      }
 
-    onMounted(() => {
-        getCsrfToken();
-    });
+      if (this.formData.password.length < 6) {
+        this.error = "Password must be at least 6 characters.";
+        return;
+      }
 
-    
-    function handleRegister() {
-        let registerForm = document.getElementById('registerForm');
-        let form_data = new FormData(registerFormForm);
-        errorMessage.value = [];
-        successMessage.value = '';
+      
+      if (!this.formData.fname || !this.formData.lname || !this.formData.username || !this.formData.gender || !this.formData.date_of_birth) {
+        this.error = "Please fill in all fields.";
+        return;
+      }
 
-        fetch('/api/v1/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrf_token.value
-            },
-            body: JSON.stringify(formData.value)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                successMessage.value = data.message;
-                formData.value = {
-                    fname: '',
-                    lname: '',
-                    username: '',
-                    Email: '',
-                    password: '',
-                    gender: '',
-                    age: '',
-                    date_of_birth: ''
-                };
-            } else {
-                errorMessage.value = data.message;
-            }
-        })
-        .catch(error => {
-            console.error('Error registering user:', error);
-            errorMessage.value = 'An error occurred while registering. Please try again.';
+      this.loading = true;
+
+      
+      try {
+        const response = await fetch('/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(this.formData)
         });
-    }*/
 
- 
-    export default {
-        name: "RegisterView",
-        data() {
-            return {
+        const data = await response.json();
+
+        if (response.status === 201 || data.message || data.success) {
+          this.successMessage = "Registration successful! Redirecting to login...";
+          
+          // Clear form
+          this.formData = {
+            fname: "",
+            lname: "",
+            username: "",
             email: "",
             password: "",
-            error: "",
-            loading: false,
-            showPassword: false
-            };
-        },
-        methods: {
-            handleRegister() {
-                this.error = "";
-                let registerForm = document.getElementById('registerForm');
-                let form_data = new FormData(registerFormForm);
-                errorMessage.value = [];
-                successMessage.value = '';
-
-
-
-                if (!this.email) {
-                    this.error = "Email is required.";
-                    return;
-                }
-
-                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailPattern.test(this.email)) {
-                    this.error = "Please enter a valid email address.";
-                    return;
-                }
-
-                if (!this.password) {
-                    this.error = "Password is required.";
-                    return;
-                }
-
-                this.loading = true;
-
-                fetch('/api/v1/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrf_token.value
-                    },
-                    body: JSON.stringify(formData.value)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        successMessage.value = data.message;
-                        formData.value = {
-                            fname: '',
-                            lname: '',
-                            username: '',
-                            Email: '',
-                            password: '',
-                            gender: '',
-                            date_of_birth: ''
-                        };
-                    } else {
-                        errorMessage.value = data.message;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error registering user:', error);
-                    errorMessage.value = 'An error occurred while registering. Please try again.';
-                });
-                /*
-                // Temporary demo login
-                setTimeout(() => {
-                    this.loading = false;
-                    alert("Login successful.");
-                    this.$router.push("/");
-                }, 1000);*/
-            }
+            gender: "",
+            date_of_birth: ""
+          };
+          
+          // Redirect to login after 2 seconds
+          setTimeout(() => {
+            this.$router.push("/login");
+          }, 2000);
+        } else {
+          this.error = data.error || "Registration failed. Please try again.";
         }
-    };
-    
+      } catch (error) {
+        console.error("Error registering user:", error);
+        this.error = "An error occurred while registering. Please try again.";
+      } finally {
+        this.loading = false;
+      }
+    }
+  }
+};
 </script>
 
 <style scoped>
@@ -292,7 +245,7 @@ label {
   font-weight: 500;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid #d9c9bd;
@@ -303,7 +256,7 @@ input {
   box-sizing: border-box;
 }
 
-input:focus {
+input:focus, select:focus {
   outline: none;
   border-color: #a83232;
   box-shadow: 0 0 0 3px rgba(168, 50, 50, 0.14);
@@ -337,6 +290,12 @@ input:focus {
 .error {
   margin: 6px 0 14px;
   color: #b00020;
+  font-size: 0.92rem;
+}
+
+.success {
+  margin: 6px 0 14px;
+  color: #2e7d32;
   font-size: 0.92rem;
 }
 

@@ -17,22 +17,21 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <RouterLink to="/" class="nav-link active">Home</RouterLink>
-            </li>
-            <li class="nav-item">
               <RouterLink class="nav-link" to="/about">About</RouterLink>
-            </li>
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/login">Login</RouterLink>
             </li>
           </ul>
           <ul class="navbar-nav">
-            
-             <li class="nav-item">
-              <RouterLink class="nav-link" to="{{ url_for('logout') }}">logout</RouterLink>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/dashboard">Dashboard</RouterLink>
             </li>
             <li class="nav-item">
-              <RouterLink class="nav-link" to="/login">login</RouterLink>
+              <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
+            </li>
+            <li class="nav-item">
+              <button @click="handleLogout" class="nav-link" style="background: none; border: none; cursor: pointer;">Logout</button>
+            </li>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/login">Login</RouterLink>
             </li>
           </ul>
         </div>
@@ -42,7 +41,24 @@
 </template>
 
 <script setup>
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
+
+const router = useRouter()
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+const handleLogout = async () => {
+  try {
+    await fetch(`${apiUrl}/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+  } catch (error) {
+    console.error('Logout error:', error)
+  } finally {
+    
+    router.push('/login')
+  }
+}
 </script>
 
 <style>
