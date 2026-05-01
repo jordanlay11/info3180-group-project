@@ -10,3 +10,12 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 from app import views
+
+
+
+
+@app.cli.command("seed-db")
+def seed_db_command():
+    """Seed the database with test data."""
+    from app.seed_data import seed_database
+    seed_database()

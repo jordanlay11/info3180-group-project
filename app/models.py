@@ -235,3 +235,29 @@ class Report(db.Model):
     
     def __repr__(self):
         return f'<Report {self.id}>'
+    
+
+class Favorite(db.Model):
+    """Favorite table - stores profiles that users have saved"""
+    __tablename__ = 'favorites'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    profile_id = db.Column(db.Integer, db.ForeignKey('profiles.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id])
+    profile = db.relationship('Profile', foreign_keys=[profile_id])
+    
+    
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'profile_id', name='unique_favorite'),
+    )
+    
+    def __init__(self, user_id, profile_id):
+        self.user_id = user_id
+        self.profile_id = profile_id
+    
+    def __repr__(self):
+        return f'<Favorite user={self.user_id} profile={self.profile_id}>'
