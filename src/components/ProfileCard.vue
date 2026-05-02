@@ -466,4 +466,29 @@ onMounted(() => {
   background: #fff0f0;
   text-decoration: underline;
 }
+.profile-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(168, 50, 50, 0.08);
+  border: 1px solid #f0e0d8;
+  transition: all 0.25s ease;
+}
+
+.profile-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 32px rgba(168, 50, 50, 0.12);
+  border-color: #e8c8b8;
+}
+
+/* Optional accent bar */
+.card-image::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #a83232, #4ecdc4);
+}
 </style>
