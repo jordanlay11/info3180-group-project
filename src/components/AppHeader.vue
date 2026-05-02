@@ -1,42 +1,21 @@
 <template>
   <header>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/">VueJS with Flask</a>
+    <nav class="custom-navbar">
+      <div class="nav-container">
+        <a class="logo" href="/">APP NAME</a>
         <button
-          class="navbar-toggler"
+          class="mobile-menu-btn"
           type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
+          @click="toggleMenu"
         >
-          <span class="navbar-toggler-icon"></span>
+          <span class="menu-icon">☰</span>
         </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto">
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/about">About</RouterLink>
-            </li>
-          </ul>
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/dashboard">Dashboard</RouterLink>
-            </li>
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
-            </li>
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
-            </li>
-            <li class="nav-item">
-              <button @click="handleLogout" class="nav-link" style="background: none; border: none; cursor: pointer;">Logout</button>
-            </li>
-            <li class="nav-item">
-              <RouterLink class="nav-link" to="/login">Login</RouterLink>
-            </li>
-          </ul>
+        <div class="nav-links" :class="{ 'show': mobileMenuOpen }">
+          <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
+          <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
+          <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
+          <button @click="handleLogout" class="nav-link logout-btn">Logout</button>
+          <RouterLink class="nav-link" to="/login">Login</RouterLink>
         </div>
       </div>
     </nav>
@@ -44,10 +23,16 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { RouterLink, useRouter } from "vue-router";
 
 const router = useRouter()
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const mobileMenuOpen = ref(false)
+
+const toggleMenu = () => {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
 
 const handleLogout = async () => {
   try {
@@ -58,12 +43,108 @@ const handleLogout = async () => {
   } catch (error) {
     console.error('Logout error:', error)
   } finally {
-    
     router.push('/login')
   }
 }
 </script>
 
-<style>
-/* Add any component specific styles here */
+<style scoped>
+/* Custom Navbar Styles */
+.custom-navbar {
+  background: #a83232;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  text-decoration: none;
+}
+
+.logo:hover {
+  color: #ffd4c4;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.nav-link:hover {
+  color: #ffd4c4;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+/* Active link style */
+.router-link-active {
+  color: #ffd4c4;
+  border-bottom: 2px solid #ffd4c4;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
+  }
+  
+  .nav-links {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 0;
+    margin-top: 1rem;
+  }
+  
+  .nav-links.show {
+    display: flex;
+  }
+  
+  .custom-navbar {
+    padding: 1rem;
+  }
+}
 </style>

@@ -1,14 +1,14 @@
 <template>
   <div class="dashboard-container">
     <div class="dashboard-header">
-      <h1>Browse Potential Matches</h1>
-      <p>Discover people who share your interests</p>
+      <h1>Ready To Mingle ?</h1>
+      <p>Let's find your person 💞</p>
     </div>
 
     <!-- Search Filters Section -->
     <div class="filters-card">
       <div class="filters-header">
-        <h3>🔍 Filter Matches</h3>
+        <h3>Find your match </h3>
       </div>
 
       <div class="filters-grid">
@@ -130,8 +130,8 @@
     <!-- Recommendations Section - Only visible when NOT searching (hasSearched is false) -->
     <div v-if="!hasSearched" class="recommendations-section">
       <div class="section-header">
-        <h2>⭐ Recommended for You</h2>
-        <p>Latest profiles that match your interests</p>
+        <h2>Matches For You ✨</h2>
+        <p>Fresh faces, new connections</p>
       </div>
 
       <div v-if="recommendationsLoading" class="loading-spinner">
@@ -631,5 +631,9 @@ onMounted(() => {
   .dashboard-header h1 {
     font-size: 1.8rem;
   }
+}
+.dashboard-container {
+  background-color: #fdf0ed;
+  min-height: 100vh;
 }
 </style>
