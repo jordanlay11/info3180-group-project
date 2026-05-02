@@ -261,3 +261,21 @@ class Favorite(db.Model):
     
     def __repr__(self):
         return f'<Favorite user={self.user_id} profile={self.profile_id}>'
+    
+
+class Pass(db.Model):
+    """Pass table - tracks profiles user has passed on"""
+    __tablename__ = 'passes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    from_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    __table_args__ = (
+        db.UniqueConstraint('from_user_id', 'to_user_id', name='unique_pass'),
+    )
+    
+    def __init__(self, from_user_id, to_user_id):
+        self.from_user_id = from_user_id
+        self.to_user_id = to_user_id

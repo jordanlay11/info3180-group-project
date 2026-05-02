@@ -25,6 +25,9 @@
               <RouterLink class="nav-link" to="/dashboard">Dashboard</RouterLink>
             </li>
             <li class="nav-item">
+              <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
+            </li>
+            <li class="nav-item">
               <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
             </li>
             <li class="nav-item">
