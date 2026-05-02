@@ -1,5 +1,3 @@
-
-
 """
 Flask Documentation:     https://flask.palletsprojects.com/
 Jinja2 Documentation:    https://jinja.palletsprojects.com/
@@ -8,13 +6,16 @@ This file creates your application.
 """
 
 from app import app, db
-from flask import render_template, request, jsonify, send_file, session
+from flask import render_template, request, jsonify, send_file, session, url_for
 import os
 from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report 
 #from . import db
 from app.forms import LoginForm, SignupForm
 from datetime import date, datetime  
-
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from datetime import datetime
+from flask import  redirect, url_for
 
 
 ###
@@ -27,11 +28,6 @@ def calculate_age(birth_date):
         return None
     today = date.today()
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-
-
-
-
-
 
 
 @app.route('/')
@@ -63,6 +59,7 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
     return jsonify({'message': 'Please use POST to login'}), 405
+
 
 #signup route 
 @app.route('/register', methods=['POST', 'GET'])
@@ -118,8 +115,6 @@ def signup():
         return jsonify({'error': 'Invalid request method'}), 405
 
 
-
-
 @app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
@@ -133,10 +128,8 @@ def logout():
 def search_profiles():
     """
     Search profiles with filters
-   
     """
     
- 
     current_user_id = session.get('user_id')
     if not current_user_id:
         return jsonify({
@@ -144,7 +137,6 @@ def search_profiles():
             'error': 'Authentication required. Please log in.'
         }), 401
     
-   
     location = request.args.get('location', '').strip()
     min_age = request.args.get('min_age', type=int)
     max_age = request.args.get('max_age', type=int)
@@ -152,43 +144,34 @@ def search_profiles():
     occupation = request.args.get('occupation', '').strip()
     sort_by = request.args.get('sort_by', 'newest')
     
-  
     query = User.query.join(Profile, User.id == Profile.user_id).filter(
         User.id != current_user_id,
         Profile.visibility == True  
     )
     
-   
     if location:
         query = query.filter(Profile.location.ilike(f'%{location}%'))
     
-    # Filter 2: Occupation (partial match, case-insensitive)
     if occupation:
         query = query.filter(Profile.occupation.ilike(f'%{occupation}%'))
     
-    # Filter 3: Age Range (using date_of_birth)
     if min_age or max_age:
         today = date.today()
-        
         
         if max_age:
             min_birth_date = date(today.year - max_age, today.month, today.day)
             query = query.filter(User.date_of_birth >= min_birth_date)
         
-       
         if min_age:
             max_birth_date = date(today.year - min_age, today.month, today.day)
             query = query.filter(User.date_of_birth <= max_birth_date)
     
-    
     if interests_param:
         interest_list = [i.strip() for i in interests_param.split(',')]
-
         query = query.join(User.interests).filter(
             Interest.interest.in_(interest_list)
         ).distinct()
     
-   
     if sort_by == 'newest':
         query = query.order_by(User.created_at.desc())
     elif sort_by == 'oldest':
@@ -198,8 +181,6 @@ def search_profiles():
     elif sort_by == 'location_desc':
         query = query.order_by(Profile.location.desc())
     
-    
-   
     users = query.all()
     
     results = []
@@ -208,11 +189,15 @@ def search_profiles():
         interests = [i.interest for i in user.interests]
         age = calculate_age(user.date_of_birth)
         
-        # Apply age filters in Python (for cases where age calculation is complex)
         if min_age and age and age < min_age:
             continue
         if max_age and age and age > max_age:
             continue
+        
+        # Build photo URL using url_for()
+        photo_url = None
+        if profile and profile.profile_photo:
+            photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
         
         results.append({
             'id': user.id,
@@ -227,17 +212,15 @@ def search_profiles():
             'interests': interests,
             'occupation': profile.occupation if profile else None,
             'zodiac_sign': profile.zodiac_sign if profile else None,
-            'photo_url': profile.profile_photo if profile else None,
+            'photo_url': photo_url,
             'created_at': user.created_at.isoformat() if user.created_at else None
         })
     
-    # Apply age sorting in Python (since age is calculated)
     if sort_by == 'age_asc':
         results.sort(key=lambda x: x['age'] if x['age'] is not None else 999)
     elif sort_by == 'age_desc':
         results.sort(key=lambda x: x['age'] if x['age'] is not None else 0, reverse=True)
-   
-
+    
     return jsonify({
         'success': True,
         'count': len(results),
@@ -268,10 +251,6 @@ def get_all_interests():
     }), 200
 
 
-
-
-
-
 @app.route('/api/favorites', methods=['GET'])
 def get_favorites():
     """
@@ -296,6 +275,11 @@ def get_favorites():
             # Get interests for this user
             interests = [i.interest for i in user.interests]
             
+            # Build photo URL using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
             results.append({
                 'favorite_id': fav.id,
                 'profile_id': profile.id,
@@ -308,7 +292,7 @@ def get_favorites():
                 'interests': interests,
                 'occupation': profile.occupation,
                 'zodiac_sign': profile.zodiac_sign,
-                'photo_url': profile.profile_photo,
+                'photo_url': photo_url,
                 'favorited_at': fav.created_at.isoformat() if fav.created_at else None
             })
     
@@ -421,8 +405,6 @@ def check_favorite(profile_id):
     }), 200
 
 
-
-
 # MATCHING SYSTEM ENDPOINTS
 # ================================================
 
@@ -494,6 +476,10 @@ def get_recommendations():
                 match_score += 15
                 match_reasons.append('💼 Same occupation')
         
+        # Build photo URL using url_for()
+        photo_url = None
+        if profile.profile_photo:
+            photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
        
         if match_score > 0:
             recommendations.append({
@@ -507,7 +493,7 @@ def get_recommendations():
                     'bio': profile.bio,
                     'interests': list(user_interests),
                     'occupation': profile.occupation,
-                    'photo_url': profile.profile_photo
+                    'photo_url': photo_url
                 },
                 'match_score': match_score,
                 'match_reasons': match_reasons,
@@ -551,6 +537,11 @@ def get_matches():
             
             like = Like.query.filter_by(from_user_id=user_id, to_user_id=current_user_id).first()
             
+            # Build photo URL using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
             matches.append({
                 'id': user.id,
                 'username': user.username,
@@ -559,7 +550,7 @@ def get_matches():
                 'location': profile.location,
                 'bio': profile.bio,
                 'interests': [i.interest for i in user.interests],
-                'photo_url': profile.profile_photo,
+                'photo_url': photo_url,
                 'matched_at': like.created_at.isoformat() if like else None
             })
     
@@ -643,26 +634,54 @@ def get_match_count():
     return jsonify({'success': True, 'count': mutual_match_count}), 200
 
 
-
 @app.route('/api/matching/latest', methods=['GET'])
 def get_latest_matching_profiles():
-    # ... your code ...
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    query = User.query.join(Profile).filter(
+        User.id != current_user_id,
+        Profile.visibility == True
+    ).order_by(User.created_at.desc()).limit(20)
     
     results = []
     for user in query.all():
-        results.append({
-            'id': user.id,
-            'name': f"{user.fname} {user.lname}",
-            'age': user.age,
-            'location': user.profile.location if user.profile else None,
-            'bio': user.profile.bio if user.profile else None,
-            'interests': [i.interest for i in user.interests],
-            'photo_url': user.profile.profile_photo if user.profile else None,
-            'occupation': user.profile.occupation if user.profile else None
-        })
+        profile = user.profile
+        if profile:
+            # Build the full URL for photo using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
+            results.append({
+                'id': user.id,
+                'name': f"{user.fname} {user.lname}",
+                'age': user.age,
+                'location': profile.location,
+                'bio': profile.bio,
+                'interests': [i.interest for i in user.interests],
+                'photo_url': photo_url,
+                'occupation': profile.occupation
+            })
     
     return jsonify({'success': True, 'data': results}), 200
 
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def save_uploaded_file(file):
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+       
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
+        unique_filename = timestamp + filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        return unique_filename
+    return None
 
 
 @app.route('/api/liked/check/<int:profile_id>', methods=['GET'])
@@ -681,6 +700,84 @@ def check_liked(profile_id):
         'success': True,
         'is_liked': liked is not None
     }), 200
+
+
+# ==========================================
+# UPLOAD ENDPOINT
+# ==========================================
+
+@app.route('/api/profile/photo', methods=['POST'])
+def upload_profile_photo():
+    """Upload profile picture for current user"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    if 'photo' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['photo']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    filename = save_uploaded_file(file)
+    if not filename:
+        return jsonify({'error': 'File type not allowed. Use JPG, PNG, or GIF'}), 400
+    
+    # Update user's profile
+    profile = Profile.query.filter_by(user_id=current_user_id).first()
+    if profile:
+        # Delete old photo if exists
+        if profile.profile_photo:
+            old_path = os.path.join(app.config['UPLOAD_FOLDER'], profile.profile_photo)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        profile.profile_photo = filename
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile photo uploaded',
+            'photo_url': url_for('get_profile_photo', filename=filename)
+        }), 200
+    
+    return jsonify({'error': 'Profile not found'}), 404
+
+
+@app.route('/api/uploads/<filename>')
+def get_profile_photo(filename):
+    """Serve profile pictures """
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
+
+
+
+
+
+
+
+
+
+@app.before_request
+def check_valid_session():
+    """Check if session user_id still exists in database"""
+    if 'user_id' in session:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        if not user:
+           
+            session.clear()
+            
+            if not request.path.startswith('/api/'):
+                return redirect(url_for('login'))
+            
+
+
+
+
 
 
 

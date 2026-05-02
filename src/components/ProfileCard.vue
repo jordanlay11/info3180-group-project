@@ -37,7 +37,45 @@
       </button>
     </div>
     
-    <!-- Rest of card content... -->
+    <!-- Card Content -->
+    <div class="card-content">
+      <div class="profile-header">
+        <h3>{{ profile.name }}, {{ profile.age }}</h3>
+        <span class="location">📍 {{ profile.location || 'Location not specified' }}</span>
+      </div>
+      
+      <!-- Match Reasons (Optional) -->
+      <div v-if="matchReasons && matchReasons.length" class="match-reasons">
+        <span v-for="reason in matchReasons.slice(0, 2)" :key="reason" class="reason-tag">
+          {{ reason }}
+        </span>
+      </div>
+      
+      <p class="bio">{{ truncateBio(profile.bio) }}</p>
+      
+      <div class="interests">
+        <span 
+          v-for="interest in profile.interests?.slice(0, 4)" 
+          :key="interest"
+          class="interest-tag"
+        >
+          {{ interest }}
+        </span>
+        <span v-if="profile.interests?.length > 4" class="interest-tag more">
+          +{{ profile.interests.length - 4 }}
+        </span>
+      </div>
+      
+      <div class="profile-footer">
+        <div class="occupation" v-if="profile.occupation">
+          💼 {{ profile.occupation }}
+        </div>
+        <!-- View Profile Button - Just visual for now -->
+        <button class="view-profile-btn">
+          View Profile →
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -66,7 +104,7 @@ const props = defineProps({
 const emit = defineEmits(['favorite-toggled', 'like', 'pass'])
 
 const isFavorited = ref(false)
-const isLiked = ref(false)  // ← ADD THIS
+const isLiked = ref(false)
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 // Check if profile is already liked
@@ -130,7 +168,7 @@ const toggleFavorite = async () => {
 
 // Handle Like
 const handleLike = async () => {
-  if (isLiked.value) return  // Already liked, do nothing
+  if (isLiked.value) return
   
   try {
     const response = await fetch(`${apiUrl}/api/like/${props.profile.id}`, {
@@ -139,13 +177,13 @@ const handleLike = async () => {
     })
     const data = await response.json()
     if (data.success) {
-      isLiked.value = true  // Mark as liked immediately
+      isLiked.value = true
       if (data.mutual_match) {
         alert(`🎉 It's a match! You and ${props.profile.name} liked each other!`)
       }
       emit('like', props.profile.id)
     } else if (data.message === 'Already liked') {
-      isLiked.value = true  // Already liked, update UI
+      isLiked.value = true
     }
   } catch (error) {
     console.error('Error liking profile:', error)
@@ -180,12 +218,85 @@ const handleImageError = (e) => {
 
 onMounted(() => {
   checkFavoriteStatus()
-  checkLikeStatus()  // ← ADD THIS
+  checkLikeStatus()
 })
 </script>
 
 <style scoped>
-/* ... existing styles ... */
+.profile-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card-image {
+  position: relative;
+  height: 240px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Match Score Badge */
+.match-score-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  z-index: 2;
+}
+
+/* Like/Pass Action Buttons */
+.action-buttons {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  z-index: 2;
+}
+
+.action-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.action-btn:hover {
+  transform: scale(1.05);
+}
+
+.action-btn.pass {
+  background: rgba(255, 107, 107, 0.9);
+  color: white;
+}
+
+.action-btn.pass:hover {
+  background: #ff6b6b;
+}
 
 .action-btn.like {
   background: rgba(78, 205, 196, 0.9);
@@ -196,7 +307,6 @@ onMounted(() => {
   background: #4ecdc4;
 }
 
-/* NEW: Liked button style */
 .action-btn.like.liked {
   background: #2e7d32;
   cursor: default;
@@ -214,5 +324,130 @@ onMounted(() => {
 
 .action-btn:disabled:hover {
   transform: none;
+}
+
+/* Favorite Button */
+.favorite-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
+}
+
+.favorite-btn.favorited {
+  background: #ff6b6b;
+  color: white;
+}
+
+/* Card Content */
+.card-content {
+  padding: 16px;
+}
+
+.profile-header {
+  margin-bottom: 8px;
+}
+
+.profile-header h3 {
+  font-size: 1.2rem;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.location {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* Match Reasons */
+.match-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.reason-tag {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+}
+
+/* Bio */
+.bio {
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+/* Interests */
+.interests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.interest-tag {
+  background: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  color: #555;
+}
+
+.interest-tag.more {
+  background: #ff6b6b;
+  color: white;
+}
+
+/* Profile Footer */
+.profile-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.occupation {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.view-profile-btn {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.view-profile-btn:hover {
+  background: #fff0f0;
+  text-decoration: underline;
 }
 </style>

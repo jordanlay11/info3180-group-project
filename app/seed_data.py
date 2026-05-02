@@ -20,7 +20,8 @@ test_users = [
         'location': 'Kingston',
         'interests': ['Hiking', 'Coffee', 'Reading', 'Technology'],
         'occupation': 'Software Engineer',
-        'zodiac_sign': 'Taurus'
+        'zodiac_sign': 'Taurus',
+        'profile_photo': 'alice_image.jpg' 
     },
     {
         'username': 'bob_smith',
@@ -34,7 +35,8 @@ test_users = [
         'location': 'Mona',
         'interests': ['Movies', 'Gaming', 'Music'],
         'occupation': 'Teacher',
-        'zodiac_sign': 'Leo'
+        'zodiac_sign': 'Leo',
+        'profile_photo': 'bob-image.jpg' 
     },
     {
         'username': 'carol_w',
@@ -48,7 +50,8 @@ test_users = [
         'location': 'New Kingston',
         'interests': ['Travel', 'Cooking', 'Photography', 'Food'],
         'occupation': 'Designer',
-        'zodiac_sign': 'Pisces'
+        'zodiac_sign': 'Pisces',
+        'profile_photo': 'carol-image.jpg' 
     },
     {
         'username': 'david_b',
@@ -62,7 +65,8 @@ test_users = [
         'location': 'Kingston',
         'interests': ['Gym', 'Running', 'Health', 'Cooking'],
         'occupation': 'Personal Trainer',
-        'zodiac_sign': 'Sagittarius'
+        'zodiac_sign': 'Sagittarius',
+        'profile_photo': 'david-image.jpg' 
     },
     {
         'username': 'emma_d',
@@ -76,7 +80,8 @@ test_users = [
         'location': 'Spanish Town',
         'interests': ['Art', 'Music', 'Photography', 'Reading'],
         'occupation': 'Graphic Designer',
-        'zodiac_sign': 'Cancer'
+        'zodiac_sign': 'Cancer',
+        'profile_photo': 'emma-image.jpg' 
     },
     {
         'username': 'frank_m',
@@ -90,7 +95,8 @@ test_users = [
         'location': 'Kingston',
         'interests': ['Music', 'Dancing', 'Technology', 'Travel'],
         'occupation': 'Music Producer',
-        'zodiac_sign': 'Aries'
+        'zodiac_sign': 'Aries',
+        'profile_photo': 'frank-image.jpg' 
     },
     {
         'username': 'grace_h',
@@ -104,7 +110,8 @@ test_users = [
         'location': 'Mona',
         'interests': ['Reading', 'Writing', 'Coffee', 'Art'],
         'occupation': 'Journalist',
-        'zodiac_sign': 'Libra'
+        'zodiac_sign': 'Libra',
+        'profile_photo': 'grace-image.jpg' 
     },
     {
         'username': 'henry_t',
@@ -118,7 +125,8 @@ test_users = [
         'location': 'New Kingston',
         'interests': ['Technology', 'Gaming', 'Reading', 'Coffee'],
         'occupation': 'Entrepreneur',
-        'zodiac_sign': 'Sagittarius'
+        'zodiac_sign': 'Sagittarius',
+        'profile_photo': 'henry-image.jpg' 
     }
 ]
 
@@ -157,7 +165,8 @@ def seed_database():
             location=user_data['location'],
             visibility=True,
             occupation=user_data.get('occupation'),
-            zodiac_sign=user_data.get('zodiac_sign')
+            zodiac_sign=user_data.get('zodiac_sign'),
+            profile_photo=user_data.get('profile_photo')
         )
         db.session.add(profile)
         

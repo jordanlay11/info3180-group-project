@@ -37,11 +37,6 @@ export default defineConfig(({ mode }) => {
           target: targetUrl,
           changeOrigin: true,
           secure: false
-        },
-        '/login': {
-          target: targetUrl,
-          changeOrigin: true,
-          secure: false
         }
       }
     }
