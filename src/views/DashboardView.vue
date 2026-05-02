@@ -169,7 +169,7 @@ import ProfileCard from '@/components/ProfileCard.vue'
 // ==========================================
 const browseResults = ref([])
 const loading = ref(false)
-const hasSearched = ref(false)  // Track if user has searched
+const hasSearched = ref(false)
 const allInterests = ref([])
 const showInterestFilters = ref(false)
 const recommendations = ref([])
@@ -195,7 +195,7 @@ watch(() => filters.interests_array, (newVal) => {
 // ==========================================
 const search = async () => {
   loading.value = true
-  hasSearched.value = true  // Mark that user has searched (hides recommendations)
+  hasSearched.value = true
   
   const params = new URLSearchParams()
   if (filters.location) params.append('location', filters.location)
@@ -226,8 +226,8 @@ const search = async () => {
 // CLEAR RESULTS FUNCTION
 // ==========================================
 const clearResults = () => {
-  browseResults.value = []      // Clear the results
-  hasSearched.value = false     // Reset search flag (shows recommendations)
+  browseResults.value = []
+  hasSearched.value = false
 }
 
 // ==========================================
@@ -240,7 +240,6 @@ const clearAllFilters = () => {
   filters.interests_array = []
   filters.interests = ''
   filters.sort_by = 'newest'
-  // Also clear search results and go back to recommendations
   browseResults.value = []
   hasSearched.value = false
 }
@@ -284,45 +283,20 @@ const loadRecommendations = async () => {
 // ==========================================
 // LIKE / PASS HANDLERS
 // ==========================================
+
 const handleLike = async (profileId) => {
-  console.log('👍 Like clicked for profile:', profileId)
-  try {
-    const response = await fetch(`/api/like/${profileId}`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-    const data = await response.json()
-    console.log('Like response:', data)
-    
-    if (data.success) {
-      if (data.mutual_match) {
-        alert(`🎉 It's a match!`)
-      }
-      // Refresh both sections (recommendations and search if active)
-      loadRecommendations()
-      if (hasSearched.value) {
-        search()
-      }
-    }
-  } catch (error) {
-    console.error('Error liking profile:', error)
+  console.log('🔄 Like/unlike event from ProfileCard for profile:', profileId)
+  loadRecommendations()
+  if (hasSearched.value) {
+    search()
   }
 }
 
 const handlePass = async (profileId) => {
-  console.log('👎 Pass clicked for profile:', profileId)
-  try {
-    await fetch(`/api/pass/${profileId}`, {
-      method: 'POST',
-      credentials: 'include'
-    })
-    // Refresh both sections
-    loadRecommendations()
-    if (hasSearched.value) {
-      search()
-    }
-  } catch (error) {
-    console.error('Error passing on profile:', error)
+  console.log('👎 Pass event from ProfileCard for profile:', profileId)
+  loadRecommendations()
+  if (hasSearched.value) {
+    search()
   }
 }
 
@@ -339,7 +313,6 @@ const refreshData = () => {
 onMounted(() => {
   loadInterests()
   loadRecommendations()
-  // hasSearched is false by default, so recommendations show automatically
 })
 </script>
 

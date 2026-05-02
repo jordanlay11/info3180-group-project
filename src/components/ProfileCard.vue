@@ -12,21 +12,21 @@
         {{ matchScore }}% Match
       </div>
       
+     
       <!-- Like/Pass Buttons -->
       <div v-if="showLikeButtons" class="action-buttons">
-        <button @click="handlePass" class="action-btn pass" :disabled="isLiked">
+        <button @click="handlePass" class="action-btn pass">
           ✗ Pass
         </button>
         <button 
           @click="handleLike" 
           class="action-btn like" 
           :class="{ 'liked': isLiked }"
-          :disabled="isLiked"
         >
           {{ isLiked ? '✓ Liked' : '♥ Like' }}
         </button>
       </div>
-      
+            
       <!-- Favorite Button -->
       <button 
         @click="toggleFavorite" 
@@ -166,10 +166,26 @@ const toggleFavorite = async () => {
   }
 }
 
-// Handle Like
 const handleLike = async () => {
-  if (isLiked.value) return
+  // If already liked, this is an UNLIKE action
+  if (isLiked.value) {
+    try {
+      const response = await fetch(`${apiUrl}/api/unlike/${props.profile.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      const data = await response.json()
+      if (data.success) {
+        isLiked.value = false
+        emit('like', props.profile.id)
+      }
+    } catch (error) {
+      console.error('Error unliking profile:', error)
+    }
+    return
+  }
   
+  // Not liked - this is a LIKE action
   try {
     const response = await fetch(`${apiUrl}/api/like/${props.profile.id}`, {
       method: 'POST',

@@ -137,6 +137,9 @@ def search_profiles():
             'error': 'Authentication required. Please log in.'
         }), 401
     
+    # Get IDs of passed profiles
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    
     location = request.args.get('location', '').strip()
     min_age = request.args.get('min_age', type=int)
     max_age = request.args.get('max_age', type=int)
@@ -146,6 +149,7 @@ def search_profiles():
     
     query = User.query.join(Profile, User.id == Profile.user_id).filter(
         User.id != current_user_id,
+        User.id.notin_(passed_ids),
         Profile.visibility == True  
     )
     
@@ -595,6 +599,49 @@ def like_profile(profile_id):
     }), 201
 
 
+@app.route('/api/unlike/<int:profile_id>', methods=['DELETE'])
+def unlike_profile(profile_id):
+    """Remove a like from a profile (unlike/unmatch)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Find the like
+    like = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if not like:
+        return jsonify({'error': 'Like not found'}), 404
+    
+    # Check if it was a mutual match (they also liked you)
+    mutual = Like.query.filter_by(
+        from_user_id=profile_id,
+        to_user_id=current_user_id
+    ).first()
+    
+    # Delete the like
+    db.session.delete(like)
+    
+    # If it was a mutual match, also delete the match record
+    if mutual:
+        match = Match.query.filter(
+            ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
+            ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
+        ).first()
+        if match:
+            db.session.delete(match)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Like removed',
+        'was_mutual': mutual is not None
+    }), 200
+
+
 @app.route('/api/pass/<int:profile_id>', methods=['POST'])
 def pass_profile(profile_id):
     """Pass on a profile (won't show again)"""
@@ -640,8 +687,13 @@ def get_latest_matching_profiles():
     if not current_user_id:
         return jsonify({'error': 'Authentication required'}), 401
     
+     # Get IDs of passed profiles
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    excluded_ids = set(passed_ids + [current_user_id])
+
     query = User.query.join(Profile).filter(
         User.id != current_user_id,
+        User.id.notin_(excluded_ids),
         Profile.visibility == True
     ).order_by(User.created_at.desc()).limit(20)
     
