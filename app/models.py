@@ -235,7 +235,27 @@ class Report(db.Model):
     
     def __repr__(self):
         return f'<Report {self.id}>'
+
+
+class Block(db.Model):
+    __tablename__ = 'blocks'
     
+    id = db.Column(db.Integer, primary_key=True)
+    blocker_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    blocked_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    # Relationships
+    blocker = db.relationship('User', foreign_keys=[blocker_id])
+    blocked = db.relationship('User', foreign_keys=[blocked_id])
+    
+    def __init__(self, blocker_id, blocked_id):
+        self.blocker_id = blocker_id
+        self.blocked_id = blocked_id
+    
+    def __repr__(self):
+        return f'<Block {self.id}>'
+
 
 class Favorite(db.Model):
     """Favorite table - stores profiles that users have saved"""

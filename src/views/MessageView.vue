@@ -7,13 +7,13 @@
           :class="{ active: activeTab === 'chats' }"
           @click="activeTab = 'chats'"
         >
-          Chats
+          Recent Chats
         </button>
         <button
           :class="{ active: activeTab === 'matches' }"
           @click="activeTab = 'matches'"
         >
-          Matches
+          New Chat
         </button>
       </div>
 
@@ -56,6 +56,12 @@
       <div v-else class="chat-wrapper">
         <div class="chat-header">
           {{ selectedChat.name }}
+          <div class="chat-actions">
+            <button @click="reportUser" class="action-btn report">
+              Report
+            </button>
+            <button @click="blockUser" class="action-btn block">Block</button>
+          </div>
         </div>
 
         <div class="messages" ref="messageContainer">
@@ -243,9 +249,69 @@ const sendMessage = async () => {
 
       await nextTick();
       scrollToBottom();
+    } else {
+      alert(data.error || "Failed to send message");
     }
   } catch (err) {
     console.error("Error sending message", err);
+  }
+};
+
+const blockUser = async () => {
+  if (
+    !selectedChat.value ||
+    !confirm(`Are you sure you want to block ${selectedChat.value.name}?`)
+  )
+    return;
+
+  try {
+    const res = await fetch(`/api/block/${selectedChat.value.receiver_id}`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("User blocked");
+      // Optionally, close the chat or refresh
+      selectedChat.value = null;
+      messages.value = [];
+    } else {
+      alert(data.error || "Failed to block user");
+    }
+  } catch (err) {
+    console.error("Error blocking user", err);
+  }
+};
+
+const reportUser = async () => {
+  if (!selectedChat.value) return;
+
+  const reason = prompt("Please provide a reason for reporting:");
+  if (!reason || !reason.trim()) return;
+
+  try {
+    const res = await fetch(`/api/report/${selectedChat.value.receiver_id}`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reason: reason.trim(),
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("User reported");
+    } else {
+      alert(data.error || "Failed to report user");
+    }
+  } catch (err) {
+    console.error("Error reporting user", err);
   }
 };
 
@@ -280,7 +346,7 @@ onBeforeUnmount(() => {
 
 // Watchers for polling control
 watch(activeTab, (newTab) => {
-  if (newTab !== 'chats') {
+  if (newTab !== "chats") {
     stopMessagePolling();
   } else if (selectedChat.value) {
     startMessagePolling();
@@ -290,7 +356,7 @@ watch(activeTab, (newTab) => {
 watch(selectedChat, (newChat) => {
   if (!newChat) {
     stopMessagePolling();
-  } else if (activeTab.value === 'chats') {
+  } else if (activeTab.value === "chats") {
     startMessagePolling();
   }
 });
@@ -374,6 +440,32 @@ watch(selectedChat, (newChat) => {
   padding: 15px;
   border-bottom: 1px solid #ddd;
   font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.report {
+  background: #ff6b6b;
+  color: white;
+}
+
+.block {
+  background: #ffa726;
+  color: white;
 }
 
 .messages {

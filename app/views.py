@@ -8,7 +8,7 @@ This file creates your application.
 from app import app, db
 from flask import render_template, request, jsonify, send_file, session, url_for
 import os
-from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report 
+from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report, Block 
 from app.forms import LoginForm, SignupForm
 from datetime import date, datetime  
 from werkzeug.utils import secure_filename
@@ -904,6 +904,10 @@ def get_conversation(match_id):
         .order_by(Message.sent_at.asc())\
         .all()
 
+    # Filter out messages from blocked users
+    blocked_user_ids = [b.blocked_id for b in Block.query.filter_by(blocker_id=current_user_id).all()]
+    filtered_messages = [msg for msg in messages if msg.from_user_id not in blocked_user_ids]
+
     return jsonify({
         'success': True,
         'data': [
@@ -915,7 +919,7 @@ def get_conversation(match_id):
                 'sent_at': msg.sent_at,
                 'is_read': msg.is_read
             }
-            for msg in messages
+            for msg in filtered_messages
         ]
     }), 200
 
@@ -941,6 +945,11 @@ def send_message(match_id):
 
     # Determine receiver automatically (DO NOT trust frontend)
     receiver_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+
+    # Check if receiver is blocked by sender
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=receiver_id).first()
+    if block:
+        return jsonify({'error': 'Cannot send message to blocked user'}), 403
 
     message = Message(
         match_id=match_id,
@@ -984,6 +993,63 @@ def get_current_user():
             'lname': user.lname
         }
     }), 200
+
+
+@app.route('/api/block/<int:user_id>', methods=['POST'])
+def block_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot block yourself'}), 400
+
+    existing_block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if existing_block:
+        return jsonify({'error': 'User already blocked'}), 409
+
+    block = Block(blocker_id=current_user_id, blocked_id=user_id)
+    db.session.add(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User blocked'}), 201
+
+
+@app.route('/api/unblock/<int:user_id>', methods=['POST'])
+def unblock_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if not block:
+        return jsonify({'error': 'User not blocked'}), 404
+
+    db.session.delete(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User unblocked'}), 200
+
+
+@app.route('/api/report/<int:user_id>', methods=['POST'])
+def report_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    reason = data.get('reason', '').strip()
+    if not reason:
+        return jsonify({'error': 'Reason is required'}), 400
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot report yourself'}), 400
+
+    report = Report(reporter_id=current_user_id, reported_id=user_id, reason=reason)
+    db.session.add(report)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User reported'}), 201
 
 
 
