@@ -3,18 +3,17 @@
     <nav class="custom-navbar">
       <div class="nav-container">
         <a class="logo" href="/">APP NAME</a>
-        <button
-          class="mobile-menu-btn"
-          type="button"
-          @click="toggleMenu"
-        >
+        <button class="mobile-menu-btn" type="button" @click="toggleMenu">
           <span class="menu-icon">☰</span>
         </button>
-        <div class="nav-links" :class="{ 'show': mobileMenuOpen }">
+        <div class="nav-links" :class="{ show: mobileMenuOpen }">
           <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
           <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
           <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
-          <button @click="handleLogout" class="nav-link logout-btn">Logout</button>
+          <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
+          <button @click="handleLogout" class="nav-link logout-btn">
+            Logout
+          </button>
           <RouterLink class="nav-link" to="/login">Login</RouterLink>
         </div>
       </div>
@@ -23,29 +22,29 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
-const router = useRouter()
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-const mobileMenuOpen = ref(false)
+const router = useRouter();
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const mobileMenuOpen = ref(false);
 
 const toggleMenu = () => {
-  mobileMenuOpen.value = !mobileMenuOpen.value
-}
+  mobileMenuOpen.value = !mobileMenuOpen.value;
+};
 
 const handleLogout = async () => {
   try {
     await fetch(`${apiUrl}/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    })
+      method: "POST",
+      credentials: "include",
+    });
   } catch (error) {
-    console.error('Logout error:', error)
+    console.error("Logout error:", error);
   } finally {
-    router.push('/login')
+    router.push("/login");
   }
-}
+};
 </script>
 
 <style scoped>
@@ -129,7 +128,7 @@ const handleLogout = async () => {
   .mobile-menu-btn {
     display: block;
   }
-  
+
   .nav-links {
     display: none;
     width: 100%;
@@ -138,11 +137,11 @@ const handleLogout = async () => {
     padding: 1rem 0;
     margin-top: 1rem;
   }
-  
+
   .nav-links.show {
     display: flex;
   }
-  
+
   .custom-navbar {
     padding: 1rem;
   }
