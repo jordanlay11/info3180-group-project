@@ -639,13 +639,16 @@ def unlike_profile(profile_id):
     # Delete the like
     db.session.delete(like)
     
-    # If it was a mutual match, also delete the match record
+    # If it was a mutual match, also delete the match record and associated messages
     if mutual:
         match = Match.query.filter(
             ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
             ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
         ).first()
         if match:
+            # Delete all messages associated with this match first
+            Message.query.filter_by(match_id=match.id).delete()
+            # Then delete the match
             db.session.delete(match)
     
     db.session.commit()

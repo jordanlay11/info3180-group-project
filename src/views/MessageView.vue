@@ -93,7 +93,9 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
+import { useRoute } from "vue-router";
 
+const route = useRoute();
 const activeTab = ref("chats");
 
 const chats = ref([]);
@@ -164,10 +166,29 @@ const startChat = async (match) => {
   selectedChat.value = match;
   activeTab.value = "chats";
 
-  chats.value.unshift(match);
+  if (!chats.value.some((c) => c.match_id === match.match_id)) {
+    chats.value.unshift(match);
+  }
   matches.value = matches.value.filter((m) => m.match_id !== match.match_id);
 
   messages.value = [];
+  await fetchMessages(match.match_id);
+};
+
+const selectMatchFromRoute = async () => {
+  const matchId = Number(route.query.match_id);
+  if (!matchId) return;
+
+  const chat = chats.value.find((c) => c.match_id === matchId);
+  if (chat) {
+    await selectChat(chat);
+    return;
+  }
+
+  const match = matches.value.find((m) => m.match_id === matchId);
+  if (match) {
+    await startChat(match);
+  }
 };
 
 // ---------- API ----------
@@ -334,8 +355,9 @@ onMounted(async () => {
   await loadCurrentUser();
   await loadChats();
   await loadMatches();
+  await selectMatchFromRoute();
 
-  if (chats.value.length > 0) {
+  if (!selectedChat.value && chats.value.length > 0) {
     selectChat(chats.value[0]);
   }
 });

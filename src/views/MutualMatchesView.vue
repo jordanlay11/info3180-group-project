@@ -13,46 +13,50 @@
     <div v-else-if="mutualMatches.length === 0" class="empty-state">
       <div class="empty-icon">💔</div>
       <h3>No mutual matches yet</h3>
-      <p>Like some profiles and when they like you back, they'll appear here!</p>
-      <router-link to="/dashboard" class="browse-btn">Browse Profiles</router-link>
+      <p>
+        Like some profiles and when they like you back, they'll appear here!
+      </p>
+      <router-link to="/dashboard" class="browse-btn"
+        >Browse Profiles</router-link
+      >
     </div>
 
     <div v-else class="matches-grid">
-      <div 
-        v-for="match in mutualMatches" 
-        :key="match.id"
-        class="match-card"
-      >
+      <div v-for="match in mutualMatches" :key="match.id" class="match-card">
         <div class="match-image">
-          <img 
-            :src="match.photo_url || '/default-avatar.png'" 
+          <img
+            :src="match.photo_url || '/default-avatar.png'"
             :alt="match.name"
             @error="handleImageError"
           />
           <div class="match-badge">💕 Match!</div>
         </div>
-        
+
         <div class="match-content">
           <div class="match-header">
             <h3>{{ match.name }}, {{ match.age }}</h3>
-            <span class="location">📍 {{ match.location || 'Location not specified' }}</span>
+            <span class="location"
+              >📍 {{ match.location || "Location not specified" }}</span
+            >
           </div>
-          
+
           <p class="bio">{{ truncateBio(match.bio) }}</p>
-          
+
           <div class="interests">
-            <span 
-              v-for="interest in match.interests?.slice(0, 3)" 
+            <span
+              v-for="interest in match.interests?.slice(0, 3)"
               :key="interest"
               class="interest-tag"
             >
               {{ interest }}
             </span>
           </div>
-          
+
           <div class="match-actions">
-            <p class="matched-date">Matched on {{ formatDate(match.matched_at) }}</p>
-            <button @click="startConversation(match.id)" class="message-btn">
+            <p class="matched-date">
+              Matched on {{ formatDate(match.matched_at) }}
+            </p>
+            <button @click="goToMessages(match.id)" class="message-btn">
               💬 Send Message
             </button>
           </div>
@@ -63,61 +67,68 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 
-const router = useRouter()
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const router = useRouter();
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-const mutualMatches = ref([])
-const loading = ref(true)
+const mutualMatches = ref([]);
+const loading = ref(true);
+
+const goToMessages = (matchId) => {
+  router.push({
+    path: "/messages",
+    query: { match_id: matchId },
+  });
+};
 
 const loadMutualMatches = async () => {
-  loading.value = true
+  loading.value = true;
   try {
     const response = await fetch(`${apiUrl}/api/matches`, {
-      credentials: 'include'
-    })
-    const data = await response.json()
+      credentials: "include",
+    });
+    const data = await response.json();
     if (data.success) {
-      mutualMatches.value = data.data
+      mutualMatches.value = data.data;
     }
   } catch (error) {
-    console.error('Error loading mutual matches:', error)
+    console.error("Error loading mutual matches:", error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const startConversation = (matchId) => {
-  router.push(`/messages/${matchId}`)
-}
+  router.push(`/messages/${matchId}`);
+};
 
 const truncateBio = (bio) => {
-  if (!bio) return 'No bio available.'
+  if (!bio) return "No bio available.";
   if (bio.length > 100) {
-    return bio.substring(0, 100) + '...'
+    return bio.substring(0, 100) + "...";
   }
-  return bio
-}
+  return bio;
+};
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'recently'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  })
-}
+  if (!dateString) return "recently";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
 
 const handleImageError = (e) => {
-  e.target.src = '/default-avatar.png'
-}
+  e.target.src = "/default-avatar.png";
+};
 
 onMounted(() => {
-  loadMutualMatches()
-})
+  loadMutualMatches();
+});
 </script>
 
 <style scoped>
@@ -160,8 +171,12 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Empty State */
@@ -204,7 +219,7 @@ onMounted(() => {
 
 .browse-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255,107,107,0.3);
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
 }
 
 /* Matches Grid */
@@ -218,14 +233,16 @@ onMounted(() => {
   background: white;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
   display: flex;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .match-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .match-image {
@@ -330,16 +347,16 @@ onMounted(() => {
   .match-card {
     flex-direction: column;
   }
-  
+
   .match-image {
     width: 100%;
     height: 200px;
   }
-  
+
   .mutual-matches-container {
     padding: 20px 15px;
   }
-  
+
   .page-header h1 {
     font-size: 1.5rem;
   }
