@@ -567,7 +567,6 @@ def like_profile(profile_id):
     if not current_user_id:
         return jsonify({'error': 'Authentication required'}), 401
     
-    
     existing = Like.query.filter_by(
         from_user_id=current_user_id,
         to_user_id=profile_id
@@ -576,26 +575,43 @@ def like_profile(profile_id):
     if existing:
         return jsonify({'success': False, 'message': 'Already liked'}), 409
     
-    
     new_like = Like(from_user_id=current_user_id, to_user_id=profile_id)
     db.session.add(new_like)
     db.session.commit()
     
-    
+    # Check if mutual match (they liked you back)
     mutual = Like.query.filter_by(
         from_user_id=profile_id,
         to_user_id=current_user_id
     ).first()
     
+    # ✅ ADD THIS BLOCK - Create match record if mutual
+    match_created = None
+    if mutual:
+        # Check if match already exists
+        existing_match = Match.query.filter(
+            ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
+            ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
+        ).first()
+        
+        if not existing_match:
+            new_match = Match(user1_id=current_user_id, user2_id=profile_id)
+            db.session.add(new_match)
+            db.session.commit()
+            match_created = new_match.id
+            print(f"✅ Match created between {current_user_id} and {profile_id}")
+    
     return jsonify({
         'success': True,
         'message': 'Liked!',
         'mutual_match': mutual is not None,
+        'match_id': match_created,
         'match_user': {
             'id': mutual.from_user_id if mutual else None,
             'name': User.query.get(profile_id).fname if mutual else None
         } if mutual else None
     }), 201
+
 
 
 @app.route('/api/unlike/<int:profile_id>', methods=['DELETE'])
