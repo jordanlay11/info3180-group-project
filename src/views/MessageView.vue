@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 
 const activeTab = ref("chats");
 
@@ -98,6 +98,7 @@ const messages = ref([]);
 const newMessage = ref("");
 const messageContainer = ref(null);
 const currentUserId = ref(null);
+const pollingTimer = ref(null);
 
 // ---------- LOAD LISTS ----------
 const loadCurrentUser = async () => {
@@ -164,20 +165,55 @@ const startChat = async (match) => {
 };
 
 // ---------- API ----------
-const fetchMessages = async (matchId) => {
+const fetchMessages = async (matchId, shouldScroll = true) => {
   try {
     const res = await fetch(`/api/messages/conversation/${matchId}`, {
       credentials: "include",
     });
 
+    if (res.status === 401) {
+      stopMessagePolling();
+      return;
+    }
+
     const data = await res.json();
 
     if (data.success) {
+      const previousLastId = messages.value.length
+        ? messages.value[messages.value.length - 1].id
+        : null;
+
       messages.value = data.data;
-      scrollToBottom();
+
+      const currentLastId = messages.value.length
+        ? messages.value[messages.value.length - 1].id
+        : null;
+
+      if (shouldScroll && currentLastId !== previousLastId) {
+        scrollToBottom();
+      }
     }
   } catch (err) {
     console.error("Error fetching messages", err);
+  }
+};
+
+const startMessagePolling = () => {
+  stopMessagePolling();
+
+  if (!selectedChat.value) return;
+
+  pollingTimer.value = setInterval(() => {
+    if (selectedChat.value) {
+      fetchMessages(selectedChat.value.match_id, false);
+    }
+  }, 3000);
+};
+
+const stopMessagePolling = () => {
+  if (pollingTimer.value) {
+    clearInterval(pollingTimer.value);
+    pollingTimer.value = null;
   }
 };
 
@@ -235,6 +271,27 @@ onMounted(async () => {
 
   if (chats.value.length > 0) {
     selectChat(chats.value[0]);
+  }
+});
+
+onBeforeUnmount(() => {
+  stopMessagePolling();
+});
+
+// Watchers for polling control
+watch(activeTab, (newTab) => {
+  if (newTab !== 'chats') {
+    stopMessagePolling();
+  } else if (selectedChat.value) {
+    startMessagePolling();
+  }
+});
+
+watch(selectedChat, (newChat) => {
+  if (!newChat) {
+    stopMessagePolling();
+  } else if (activeTab.value === 'chats') {
+    startMessagePolling();
   }
 });
 </script>
