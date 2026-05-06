@@ -8,7 +8,7 @@
     <!-- Search Filters Section -->
     <div class="filters-card">
       <div class="filters-header">
-        <h3>Find your match </h3>
+        <h3>Find your match</h3>
       </div>
 
       <div class="filters-grid">
@@ -322,6 +322,8 @@ onMounted(() => {
   margin: 0 auto;
   padding: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  min-height: 100vh;
 }
 
 .dashboard-header {
@@ -331,12 +333,12 @@ onMounted(() => {
 
 .dashboard-header h1 {
   font-size: 2.5rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .dashboard-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1.1rem;
 }
 
@@ -347,23 +349,23 @@ onMounted(() => {
 
 .section-header h2 {
   font-size: 1.5rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 5px;
 }
 
 .section-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 /* Filters Card */
 .filters-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 30px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-  border: 1px solid #eee;
+  box-shadow: 0 2px 10px var(--shadow);
+  border: 1px solid var(--border-color);
 }
 
 .filters-header {
@@ -376,7 +378,7 @@ onMounted(() => {
 
 .filters-header h3 {
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .filters-grid {
@@ -394,16 +396,18 @@ onMounted(() => {
 .filter-group label {
   font-weight: 600;
   margin-bottom: 8px;
-  color: #555;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
 .filter-group input,
 .filter-group select {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.95rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
   transition: border-color 0.2s;
 }
 
@@ -424,7 +428,7 @@ onMounted(() => {
 }
 
 .age-range span {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .interests-toggle {
@@ -508,12 +512,12 @@ onMounted(() => {
 
 .clear-btn {
   background: #f5f5f5;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   padding: 12px 24px;
   border-radius: 40px;
   font-size: 1rem;
   cursor: pointer;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 
@@ -541,17 +545,17 @@ onMounted(() => {
 
 .results-header-left h3 {
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .clear-results-btn {
   background: none;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   padding: 6px 16px;
   border-radius: 20px;
   cursor: pointer;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   transition: all 0.2s;
 }
@@ -566,7 +570,7 @@ onMounted(() => {
 .recommendations-section {
   margin-top: 40px;
   padding-top: 30px;
-  border-top: 2px solid #eee;
+  border-top: 2px solid var(--border-color);
 }
 
 /* Profiles Grid */
@@ -579,9 +583,9 @@ onMounted(() => {
 .empty-matches {
   text-align: center;
   padding: 60px;
-  background: #f9f9f9;
+  background: var(--bg-card);
   border-radius: 16px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 /* Loading Spinner */
@@ -631,9 +635,5 @@ onMounted(() => {
   .dashboard-header h1 {
     font-size: 1.8rem;
   }
-}
-.dashboard-container {
-  background-color: #fdf0ed;
-  min-height: 100vh;
 }
 </style>

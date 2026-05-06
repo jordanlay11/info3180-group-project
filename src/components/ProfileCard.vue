@@ -12,7 +12,6 @@
         {{ matchScore }}% Match
       </div>
       
-     
       <!-- Like/Pass Buttons -->
       <div v-if="showLikeButtons" class="action-buttons">
         <button @click="handlePass" class="action-btn pass">
@@ -70,7 +69,6 @@
         <div class="occupation" v-if="profile.occupation">
           💼 {{ profile.occupation }}
         </div>
-        <!-- View Profile Button - Just visual for now -->
         <button class="view-profile-btn">
           View Profile →
         </button>
@@ -170,7 +168,6 @@ const toggleFavorite = async () => {
 }
 
 const handleLike = async () => {
-  // If already liked, this is an UNLIKE action
   if (!props.profile?.id) return 
   if (isLiked.value) {
     try {
@@ -189,7 +186,6 @@ const handleLike = async () => {
     return
   }
   
-  // Not liked - this is a LIKE action
   try {
     const response = await fetch(`${apiUrl}/api/like/${props.profile.id}`, {
       method: 'POST',
@@ -210,7 +206,6 @@ const handleLike = async () => {
   }
 }
 
-// Handle Pass
 const handlePass = async () => {
   if (!props.profile?.id) return
   try {
@@ -224,7 +219,6 @@ const handlePass = async () => {
   }
 }
 
-// Helper functions
 const truncateBio = (bio) => {
   if (!bio) return 'No bio available.'
   if (bio.length > 100) {
@@ -244,7 +238,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Main Card */
+.profile-card {
+  background: var(--bg-card);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px var(--shadow);
+  border: 1px solid var(--border-color);
+  transition: all 0.25s ease;
+}
 
+.profile-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 32px var(--shadow);
+  border-color: var(--border-color);
+}
+
+/* Card Image Container */
 .card-image {
   position: relative;
   height: 240px;
@@ -256,6 +266,17 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Accent Bar */
+.card-image::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #a83232, #4ecdc4);
 }
 
 /* Match Score Badge */
@@ -331,10 +352,6 @@ onMounted(() => {
   opacity: 0.6;
 }
 
-.action-btn:disabled:hover {
-  transform: none;
-}
-
 /* Favorite Button */
 .favorite-btn {
   position: absolute;
@@ -374,13 +391,13 @@ onMounted(() => {
 
 .profile-header h3 {
   font-size: 1.2rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .location {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 /* Match Reasons */
@@ -401,7 +418,7 @@ onMounted(() => {
 
 /* Bio */
 .bio {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   line-height: 1.4;
   margin-bottom: 12px;
@@ -416,11 +433,11 @@ onMounted(() => {
 }
 
 .interest-tag {
-  background: #f0f0f0;
+  background: rgba(0, 0, 0, 0.05);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.7rem;
-  color: #555;
+  color: var(--text-primary);
 }
 
 .interest-tag.more {
@@ -440,7 +457,7 @@ onMounted(() => {
 
 .occupation {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .view-profile-btn {
@@ -459,29 +476,14 @@ onMounted(() => {
   background: #fff0f0;
   text-decoration: underline;
 }
-.profile-card {
-  background: white;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 8px 24px rgba(168, 50, 50, 0.08);
-  border: 1px solid #f0e0d8;
-  transition: all 0.25s ease;
+
+/* Dark Mode Specific Overrides */
+.dark-mode .interest-tag {
+  background: #0f3460;
 }
 
-.profile-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 16px 32px rgba(168, 50, 50, 0.12);
-  border-color: #e8c8b8;
-}
-
-/* Optional accent bar */
-.card-image::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #a83232, #4ecdc4);
+.dark-mode .reason-tag {
+  background: #2a2a4a;
+  color: #4ecdc4;
 }
 </style>

@@ -3,27 +3,28 @@
     <nav class="custom-navbar">
       <div class="nav-container">
         <div class="logo-group">
-          <a class="logo" href="/">APP NAME</a>
+          <a class="logo" href="/">LuvIsland</a>
           <span v-if="userName" class="greeting">Welcome {{ userName }}</span>
         </div>
-        <button class="mobile-menu-btn" type="button" @click="toggleMenu">
-          <span class="menu-icon">☰</span>
-        </button>
-        <div class="nav-links" :class="{ show: mobileMenuOpen }">
-          <!-- Only show when logged in -->
-          <template v-if="isLoggedIn">
-            <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
-            <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
-            <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
-            <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
-            <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
-            <button @click="handleLogout" class="nav-link logout-btn">
-              Logout
-            </button>
-          </template>
-          
-          <!-- Only show login when NOT logged in -->
-          <RouterLink v-if="!isLoggedIn" class="nav-link" to="/login">Login</RouterLink>
+        <div class="nav-links-wrapper">
+          <div class="nav-links" :class="{ show: mobileMenuOpen }">
+            <template v-if="isLoggedIn">
+              <!-- Dark Mode Toggle - BEFORE Browse -->
+              <button @click="toggleDarkMode" class="dark-mode-btn">
+                {{ isDarkMode ? '☀️' : '🌙' }}
+              </button>
+              <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
+              <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
+              <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
+              <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
+              <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
+              <button @click="handleLogout" class="nav-link logout-btn">Logout</button>
+            </template>
+            <RouterLink v-if="!isLoggedIn" class="nav-link" to="/login">Login</RouterLink>
+          </div>
+          <button class="mobile-menu-btn" type="button" @click="toggleMenu">
+            <span class="menu-icon">☰</span>
+          </button>
         </div>
       </div>
     </nav>
@@ -39,9 +40,29 @@ const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const mobileMenuOpen = ref(false);
 const userName = ref("");
 const isLoggedIn = ref(false);
+const isDarkMode = ref(false);
 
 const toggleMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
+};
+
+const toggleDarkMode = () => {
+  isDarkMode.value = !isDarkMode.value;
+  if (isDarkMode.value) {
+    document.documentElement.classList.add('dark-mode');
+    localStorage.setItem('darkMode', 'enabled');
+  } else {
+    document.documentElement.classList.remove('dark-mode');
+    localStorage.setItem('darkMode', 'disabled');
+  }
+};
+
+const loadDarkModePreference = () => {
+  const savedMode = localStorage.getItem('darkMode');
+  if (savedMode === 'enabled') {
+    isDarkMode.value = true;
+    document.documentElement.classList.add('dark-mode');
+  }
 };
 
 const loadCurrentUser = async () => {
@@ -88,13 +109,15 @@ const handleLogout = async () => {
   }
 };
 
-onMounted(loadCurrentUser);
+onMounted(() => {
+  loadCurrentUser();
+  loadDarkModePreference();
+});
 </script>
 
 <style scoped>
-
 .custom-navbar {
-  background: #a83232;
+  background: var(--header-bg, #a83232);
   padding: 1rem 2rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   position: fixed;
@@ -136,19 +159,36 @@ onMounted(loadCurrentUser);
   color: #ffd4c4;
 }
 
-.mobile-menu-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1.5rem;
-  cursor: pointer;
+.nav-links-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .nav-links {
   display: flex;
-  gap: 2rem;
+  gap: 1.5rem;
   align-items: center;
+}
+
+.dark-mode-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
 }
 
 .nav-link {
@@ -173,10 +213,18 @@ onMounted(loadCurrentUser);
   font-size: 1rem;
 }
 
-/* Active link style */
 .router-link-active {
   color: #ffd4c4;
   border-bottom: 2px solid #ffd4c4;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
 }
 
 /* Mobile responsive */
@@ -196,6 +244,10 @@ onMounted(loadCurrentUser);
 
   .nav-links.show {
     display: flex;
+  }
+
+  .nav-links-wrapper {
+    width: auto;
   }
 
   .custom-navbar {

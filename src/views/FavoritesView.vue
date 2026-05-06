@@ -60,6 +60,8 @@ onMounted(() => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 40px 20px;
+  background: var(--bg-primary);
+  min-height: 100vh;
 }
 
 .favorites-header {
@@ -69,12 +71,12 @@ onMounted(() => {
 
 .favorites-header h1 {
   font-size: 2rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .favorites-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1.1rem;
 }
 
@@ -87,13 +89,14 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px;
-  background: #f9f9f9;
+  background: var(--bg-card);
   border-radius: 16px;
+  border: 1px solid var(--border-color);
 }
 
 .empty-state p {
   margin-bottom: 15px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .empty-state a {
@@ -124,6 +127,11 @@ onMounted(() => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Dark Mode Specific Overrides */
+.dark-mode .empty-state {
+  background: var(--bg-card);
 }
 
 @media (max-width: 768px) {
