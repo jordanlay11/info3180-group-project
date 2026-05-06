@@ -64,13 +64,13 @@
           <h2 class="section-title">Interests</h2>
           <div class="tags">
             <span
-              v-for="interest in profile.interests"
-              :key="interest.id || interest"
+              v-for="interest in interestNames"
+              :key="interest"
               class="tag"
             >
-              {{ typeof interest === 'object' ? (interest.name || interest.interest || '') : interest }}
+              {{ interest }}
             </span>
-            <span v-if="!profile.interests || profile.interests.length === 0" class="tag muted">
+            <span v-if="!interestNames.length" class="tag muted">
               No interests added yet
             </span>
           </div>
@@ -139,8 +139,6 @@ const isFavourited = ref(false)
 
 // ── COMPUTED ──────────────────────────────────────────────────────────────
 
-// NOTE: Confirm with your Backend Lead how the logged-in user's ID is stored.
-// It may be in a Pinia store instead of localStorage — swap this out if so.
 const loggedInUserId = computed(() => Number(localStorage.getItem('user_id')))
 
 
@@ -149,12 +147,18 @@ const isOwnProfile = computed(() => true)
 
 // Handles both a full URL and a relative path returned by Flask
 const profilePhotoUrl = computed(() => {
-  // Try multiple possible photo fields
   const photo = profile.value.photo || profile.value.profile_photo || profile.value.photo_url
-  if (!photo) return 'https://i.pravatar.cc/150?img=47'
-  if (photo.startsWith('http')) return photo
+  //if (!photo) return 'https://media.istockphoto.com/id/2221915585/vector/grey-avatar-icon-user-avatar-photo-icon-social-media-user-icon-vector.jpg'
+  //if (photo.startsWith('http')) return photo
   return `${apiUrl}/${photo}`
 })
+
+const interestNames = computed(() => {
+  if (!profile.value.interests) return [];
+  return profile.value.interests.map(i =>
+    typeof i === 'object' ? (i.name || i.interest || '') : i
+  ).filter(Boolean);
+});
 
 const age = computed(() => {
   const dob = profile.value.date_of_birth || profile.value.dob
@@ -169,42 +173,85 @@ const age = computed(() => {
 })
 
 const genderLabel = computed(() => {
-  const map = { male: '♂ Male', female: '♀ Female', other: '⚧ Other' }
+  const map = { M: '♂ Male', F: '♀ Female', O: '⚧ Other' }
   return map[profile.value.gender] || profile.value.gender || 'Not specified'
 })
 
 // ── METHODS ───────────────────────────────────────────────────────────────
 
+// const loadCurrentUser = async () => {
+//   try {
+//     const response = await fetch(`${apiUrl}/api/user/me`, {
+//       method: "GET",
+//       credentials: "include",
+//     });
+// 
+//     if (response.ok) {
+//       const data = await response.json();
+//       if (data.success && data.data) {
+//         userName.value = data.data.fname || data.data.username || "";
+//         isLoggedIn.value = true;
+//         return;
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Fetch current user error:", error);
+//   }
+// 
+//   userName.value = "";
+//   isLoggedIn.value = false;
+// };
+
 async function fetchProfile() {
   loading.value = true
   error.value   = null
   try {
-    const url = `${apiUrl}/api/profile`
-    const res  = await fetch(url, { credentials: 'include' })
-    const data = await res.json()
-
-    // Handles both { success: true, data: {...} } and a plain object response
-    let p = data.success ? data.data : data
-
-    // Map backend fields to frontend expectations for display
-    profile.value = {
-      ...p,
-      first_name: p.first_name || p.fname || '',
-      last_name: p.last_name || p.lname || '',
-      username: p.username || p.handle || '',
-      bio: p.bio || p.description || '',
-      interests: p.interests || [],
-      parish: p.parish || p.location || '',
-      looking_for: p.looking_for || p.gender_preference || '',
-      preferred_age_min: p.preferred_age_min || p.age_min || '',
-      preferred_age_max: p.preferred_age_max || p.age_max || '',
-      max_distance: p.max_distance || '',
-      match_count: p.match_count || 0,
-      likes_received: p.likes_received || 0,
-      profile_views: p.profile_views || 0,
-      gender: p.gender || '',
-      date_of_birth: p.date_of_birth || p.dob || '',
+    const url = `${apiUrl}/api/user/info`
+    const res  = await fetch(url, { method: "GET", credentials: 'include' })
+    if (res.ok){
+      const data = await res.json()
+      if (data.success && data.data) {
+        profile.value = {
+          first_name : data.data.fname,
+          last_name : data.data.lname,
+          username : data.data.username,
+          bio : data.data.bio || data.data.description,
+          interests : data.data.interests || [], 
+          parish : data.data.location,
+          looking_for : data.data.gender_preference || '',
+          preferred_age_min : data.data.age_min || '',
+          preferred_age_max : data.data.age_max || '',
+          max_distance : data.data.max_distance || '',
+          match_count : data.data.match_count || 0,
+          likes_received : data.data.likes_received || 0,
+          profile_views : data.data.profile_views || 0,
+          gender : data.data.gender || 'Not Specified',
+          date_of_birth : data.data.dob || ''
+        }
+      }
     }
+    // // Handles both { success: true, data: {...} } and a plain object response
+    // let p = data.success ? data.data : data
+    // 
+    // // Map backend fields to frontend expectations for display
+    // profile.value = {
+    //   ...p,
+    //   first_name: p.first_name || p.fname || '',
+    //   last_name: p.last_name || p.lname || '',
+    //   username: p.username || p.handle || '',
+    //   bio: p.bio || p.description || '',
+    //   interests: p.interests || [],
+    //   parish: p.parish || p.location || '',
+    //   looking_for: p.looking_for || p.gender_preference || '',
+    //   preferred_age_min: p.preferred_age_min || p.age_min || '',
+    //   preferred_age_max: p.preferred_age_max || p.age_max || '',
+    //   max_distance: p.max_distance || '',
+    //   match_count: p.match_count || 0,
+    //   likes_received: p.likes_received || 0,
+    //   profile_views: p.profile_views || 0,
+    //   gender: p.gender || '',
+    //   date_of_birth: p.date_of_birth || p.dob || '',
+    // }
 
   } catch (err) {
     error.value = 'Could not load profile. Please try again.'
@@ -248,7 +295,7 @@ function goToEditProfile() {
 }
 
 function handleImageError(e) {
-  e.target.src = 'https://i.pravatar.cc/150?img=47'
+  e.target.src = 'https://media.istockphoto.com/id/2221915585/vector/grey-avatar-icon-user-avatar-photo-icon-social-media-user-icon-vector.jpg'
 }
 
 onMounted(() => {

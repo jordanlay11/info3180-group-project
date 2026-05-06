@@ -1022,17 +1022,41 @@ def get_current_user():
         }
     }), 200
 
-@app.route('/api/profile', methods=['GET'])
-def get_profile():
+@app.route('/api/user/info', methods=['GET'])
+def get_current_user_info():
     current_user_id = session.get('user_id')
     if not current_user_id:
         return jsonify({'error': 'Authentication required'}), 401
-    
+
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
+
+    interest_names = [i.interest for i in user.interests.all()]
+    match_count = None #[user.get_match_count()]
+    likes = None #user.likes_received.all()
+
     
-    return jsonify({'id': user.id}), 200
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'fname': user.fname,
+            'lname': user.lname,
+            'gender' : user.gender,
+            'dob' : user.date_of_birth,
+            'interests' : interest_names,
+            'parish' : None,
+            'looking_for' : None,
+            'preferred_age_min' : None,
+            'preferred_age_max' : None,
+            'max_distance' : None,
+            'match_count' : match_count,
+            'likes_received' : likes,
+            'profile_views' : None
+        }
+    }), 200
 
 
 @app.route('/api/block/<int:user_id>', methods=['POST'])
