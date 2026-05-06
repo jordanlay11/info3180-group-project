@@ -124,7 +124,7 @@ def signup():
 def logout():
     # Clear the session on server side
     session.clear()
-    # Return response that instructs browser to delete the cookie
+
     response = jsonify({'success': 'Logged out successfully'})
     response.set_cookie('session', '', expires=0)
     return response

@@ -10,19 +10,20 @@
           <span class="menu-icon">☰</span>
         </button>
         <div class="nav-links" :class="{ show: mobileMenuOpen }">
-          <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
-          <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
-          <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
-          <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
-          <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
-          <button
-            v-if="isLoggedIn"
-            @click="handleLogout"
-            class="nav-link logout-btn"
-          >
-            Logout
-          </button>
-          <RouterLink v-else class="nav-link" to="/login"> Login </RouterLink>
+          <!-- Only show when logged in -->
+          <template v-if="isLoggedIn">
+            <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
+            <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
+            <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
+            <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
+            <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
+            <button @click="handleLogout" class="nav-link logout-btn">
+              Logout
+            </button>
+          </template>
+          
+          <!-- Only show login when NOT logged in -->
+          <RouterLink v-if="!isLoggedIn" class="nav-link" to="/login">Login</RouterLink>
         </div>
       </div>
     </nav>
@@ -49,6 +50,12 @@ const loadCurrentUser = async () => {
       method: "GET",
       credentials: "include",
     });
+
+    if (response.status === 401) {
+      userName.value = "";
+      isLoggedIn.value = false;
+      return;
+    }
 
     if (response.ok) {
       const data = await response.json();
@@ -85,7 +92,7 @@ onMounted(loadCurrentUser);
 </script>
 
 <style scoped>
-/* Custom Navbar Styles */
+
 .custom-navbar {
   background: #a83232;
   padding: 1rem 2rem;
