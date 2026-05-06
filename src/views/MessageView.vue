@@ -295,7 +295,6 @@ const blockUser = async () => {
 
     if (data.success) {
       alert("User blocked");
-      // Optionally, close the chat or refresh
       selectedChat.value = null;
       messages.value = [];
     } else {
@@ -350,6 +349,7 @@ const formatTime = (date) => {
   const minutes = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hours}:${minutes}`;
 };
+
 // ---------- INIT ----------
 onMounted(async () => {
   await loadCurrentUser();
@@ -388,14 +388,16 @@ watch(selectedChat, (newChat) => {
 .app-container {
   display: flex;
   height: 100vh;
+  background: var(--bg-primary);
 }
 
 /* SIDEBAR */
 .sidebar {
   width: 30%;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  background: var(--bg-card);
 }
 
 .tabs {
@@ -406,12 +408,16 @@ watch(selectedChat, (newChat) => {
   flex: 1;
   padding: 10px;
   border: none;
-  background: #f0f0f0;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
 .tabs button.active {
-  background: #ddd;
+  background: var(--border-color);
   font-weight: bold;
+  color: var(--text-primary);
 }
 
 .list {
@@ -421,23 +427,26 @@ watch(selectedChat, (newChat) => {
 
 .list-item {
   padding: 15px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
   cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.2s;
 }
 
 .list-item:hover {
-  background: #f5f5f5;
+  background: var(--border-color);
 }
 
 .list-item.selected {
-  background: #e0f7fa;
+  background: var(--like-btn);
   font-weight: bold;
+  color: white;
 }
 
 .empty {
   padding: 20px;
   text-align: center;
-  color: gray;
+  color: var(--text-secondary);
 }
 
 /* CHAT AREA */
@@ -449,7 +458,7 @@ watch(selectedChat, (newChat) => {
 
 .no-chat {
   margin: auto;
-  color: gray;
+  color: var(--text-secondary);
 }
 
 .chat-wrapper {
@@ -460,11 +469,13 @@ watch(selectedChat, (newChat) => {
 
 .chat-header {
   padding: 15px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-color);
   font-weight: bold;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .chat-actions {
@@ -478,6 +489,11 @@ watch(selectedChat, (newChat) => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
+  transition: opacity 0.2s;
+}
+
+.action-btn:hover {
+  opacity: 0.8;
 }
 
 .report {
@@ -497,6 +513,7 @@ watch(selectedChat, (newChat) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: var(--bg-primary);
 }
 
 .bubble {
@@ -509,39 +526,83 @@ watch(selectedChat, (newChat) => {
 
 .sent {
   align-self: flex-end;
-  background: #dcf8c6;
+  background: var(--like-btn);
+  color: white;
   text-align: right;
 }
 
 .received {
   align-self: flex-start;
-  background: #fff;
-  border: 1px solid #eee;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   text-align: left;
 }
 
 .time {
   display: block;
   font-size: 10px;
-  text-align: right;
+  margin-top: 4px;
+  opacity: 0.7;
 }
 
 .input-area {
   display: flex;
   padding: 10px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--border-color);
   position: sticky;
   bottom: 0;
-  background: white;
+  background: var(--bg-card);
   z-index: 10;
 }
 
 .input-area input {
   flex: 1;
   padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.input-area input::placeholder {
+  color: var(--text-secondary);
 }
 
 .input-area button {
   margin-left: 10px;
+  padding: 10px 20px;
+  background: var(--like-btn);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.input-area button:hover {
+  transform: scale(1.02);
+}
+
+/* Dark Mode Specific Overrides */
+.dark-mode .sent {
+  background: var(--like-btn);
+}
+
+.dark-mode .received {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.dark-mode .tabs button {
+  background: var(--bg-card);
+}
+
+.dark-mode .tabs button.active {
+  background: var(--border-color);
+}
+
+.dark-mode .list-item.selected {
+  background: var(--like-btn);
 }
 </style>

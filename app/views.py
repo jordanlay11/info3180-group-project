@@ -124,7 +124,7 @@ def signup():
 def logout():
     # Clear the session on server side
     session.clear()
-    # Return response that instructs browser to delete the cookie
+
     response = jsonify({'success': 'Logged out successfully'})
     response.set_cookie('session', '', expires=0)
     return response
@@ -488,7 +488,7 @@ def get_recommendations():
                 match_score += 15
                 match_reasons.append('💼 Same occupation')
         
-        # Build photo URL using url_for()
+        
         photo_url = None
         if profile.profile_photo:
             photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
@@ -594,7 +594,7 @@ def like_profile(profile_id):
         to_user_id=current_user_id
     ).first()
     
-    # ✅ ADD THIS BLOCK - Create match record if mutual
+    
     match_created = None
     if mutual:
         # Check if match already exists

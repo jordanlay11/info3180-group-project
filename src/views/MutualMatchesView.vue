@@ -136,6 +136,8 @@ onMounted(() => {
   max-width: 1000px;
   margin: 0 auto;
   padding: 40px 20px;
+  background: var(--bg-primary);
+  min-height: 100vh;
 }
 
 .page-header {
@@ -145,12 +147,12 @@ onMounted(() => {
 
 .page-header h1 {
   font-size: 2rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .page-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
@@ -183,8 +185,9 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px;
-  background: #f9f9f9;
+  background: var(--bg-card);
   border-radius: 20px;
+  border: 1px solid var(--border-color);
 }
 
 .empty-icon {
@@ -194,12 +197,12 @@ onMounted(() => {
 
 .empty-state h3 {
   font-size: 1.5rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 25px;
 }
 
@@ -230,19 +233,18 @@ onMounted(() => {
 }
 
 .match-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 15px var(--shadow);
   display: flex;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--border-color);
 }
 
 .match-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px var(--shadow);
 }
 
 .match-image {
@@ -280,17 +282,17 @@ onMounted(() => {
 
 .match-header h3 {
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 5px;
 }
 
 .location {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .bio {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.4;
   margin-bottom: 12px;
@@ -304,11 +306,11 @@ onMounted(() => {
 }
 
 .interest-tag {
-  background: #f0f0f0;
+  background: rgba(0, 0, 0, 0.05);
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.75rem;
-  color: #555;
+  color: var(--text-primary);
 }
 
 .match-actions {
@@ -322,7 +324,7 @@ onMounted(() => {
 
 .matched-date {
   font-size: 0.75rem;
-  color: #aaa;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -340,6 +342,19 @@ onMounted(() => {
 
 .message-btn:hover {
   transform: scale(1.02);
+}
+
+/* Dark Mode Specific Overrides */
+.dark-mode .interest-tag {
+  background: #0f3460;
+}
+
+.dark-mode .empty-state {
+  background: var(--bg-card);
+}
+
+.dark-mode .match-card {
+  border-color: var(--border-color);
 }
 
 /* Responsive */
