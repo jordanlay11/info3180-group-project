@@ -114,11 +114,20 @@ def signup():
         return jsonify({'error': 'Invalid request method'}), 405
 
 
+#@app.route('/logout', methods=['POST'])
+#def logout():
+ #   session.clear()
+  #  return jsonify({'success': 'Logged out successfully'}), 200
+
+
 @app.route('/logout', methods=['POST'])
 def logout():
+    # Clear the session on server side
     session.clear()
-    return jsonify({'success': 'Logged out successfully'}), 200
-
+    # Return response that instructs browser to delete the cookie
+    response = jsonify({'success': 'Logged out successfully'})
+    response.set_cookie('session', '', expires=0)
+    return response
 
 ##########################################################################
 
