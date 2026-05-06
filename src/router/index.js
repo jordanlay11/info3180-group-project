@@ -6,6 +6,7 @@ import DashboardView from "../views/DashboardView.vue";
 import FavoritesView from "../views/FavoritesView.vue";
 import MutualMatchesView from "../views/MutualMatchesView.vue";
 import MessageView from "../views/MessageView.vue";
+import ProfileView from "../views/ProfileView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -42,6 +43,11 @@ const router = createRouter({
       component: MutualMatchesView,
     },
     { path: "/messages", name: "messages", component: MessageView },
+    {
+    path: '/profile',
+    name: 'Profile',
+    component: ProfileView
+    },
   ],
 });
 

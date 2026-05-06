@@ -1013,6 +1013,18 @@ def get_current_user():
         }
     }), 200
 
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    return jsonify({'id': user.id}), 200
+
 
 @app.route('/api/block/<int:user_id>', methods=['POST'])
 def block_user(user_id):

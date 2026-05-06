@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
   // Get backend port from env, default to 8081
-  const backendPort = env.VITE_BACKEND_PORT || 8081;
+  const backendPort = env.VITE_BACKEND_PORT || 8080;
   const targetUrl = `http://localhost:${backendPort}`;
 
   console.log(`🔧 Proxying API requests to: ${targetUrl}`);

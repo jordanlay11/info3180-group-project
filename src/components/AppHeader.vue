@@ -14,6 +14,7 @@
           <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
           <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
           <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
+          <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
           <button
             v-if="isLoggedIn"
             @click="handleLogout"
