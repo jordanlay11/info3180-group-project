@@ -2,20 +2,27 @@
   <header>
     <nav class="custom-navbar">
       <div class="nav-container">
-        <a class="logo" href="/">APP NAME</a>
-        <button
-          class="mobile-menu-btn"
-          type="button"
-          @click="toggleMenu"
-        >
+        <div class="logo-group">
+          <a class="logo" href="/">APP NAME</a>
+          <span v-if="userName" class="greeting">Welcome {{ userName }}</span>
+        </div>
+        <button class="mobile-menu-btn" type="button" @click="toggleMenu">
           <span class="menu-icon">☰</span>
         </button>
-        <div class="nav-links" :class="{ 'show': mobileMenuOpen }">
+        <div class="nav-links" :class="{ show: mobileMenuOpen }">
           <RouterLink class="nav-link" to="/dashboard">Browse</RouterLink>
           <RouterLink class="nav-link" to="/matches">Matches</RouterLink>
           <RouterLink class="nav-link" to="/favorites">Favorites</RouterLink>
-          <button @click="handleLogout" class="nav-link logout-btn">Logout</button>
-          <RouterLink class="nav-link" to="/login">Login</RouterLink>
+          <RouterLink class="nav-link" to="/messages">Messages</RouterLink>
+          <RouterLink class="nav-link" to="/profile">Profile</RouterLink>
+          <button
+            v-if="isLoggedIn"
+            @click="handleLogout"
+            class="nav-link logout-btn"
+          >
+            Logout
+          </button>
+          <RouterLink v-else class="nav-link" to="/login"> Login </RouterLink>
         </div>
       </div>
     </nav>
@@ -23,29 +30,58 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
-const router = useRouter()
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-const mobileMenuOpen = ref(false)
+const router = useRouter();
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const mobileMenuOpen = ref(false);
+const userName = ref("");
+const isLoggedIn = ref(false);
 
 const toggleMenu = () => {
-  mobileMenuOpen.value = !mobileMenuOpen.value
-}
+  mobileMenuOpen.value = !mobileMenuOpen.value;
+};
+
+const loadCurrentUser = async () => {
+  try {
+    const response = await fetch(`${apiUrl}/api/user/me`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.data) {
+        userName.value = data.data.fname || data.data.username || "";
+        isLoggedIn.value = true;
+        return;
+      }
+    }
+  } catch (error) {
+    console.error("Fetch current user error:", error);
+  }
+
+  userName.value = "";
+  isLoggedIn.value = false;
+};
 
 const handleLogout = async () => {
   try {
     await fetch(`${apiUrl}/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    })
+      method: "POST",
+      credentials: "include",
+    });
   } catch (error) {
-    console.error('Logout error:', error)
+    console.error("Logout error:", error);
   } finally {
-    router.push('/login')
+    userName.value = "";
+    isLoggedIn.value = false;
+    router.push("/login");
   }
-}
+};
+
+onMounted(loadCurrentUser);
 </script>
 
 <style scoped>
@@ -70,11 +106,23 @@ const handleLogout = async () => {
   flex-wrap: wrap;
 }
 
+.logo-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .logo {
   font-size: 1.5rem;
   font-weight: bold;
   color: white;
   text-decoration: none;
+}
+
+.greeting {
+  color: #ffd4c4;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .logo:hover {
@@ -129,7 +177,7 @@ const handleLogout = async () => {
   .mobile-menu-btn {
     display: block;
   }
-  
+
   .nav-links {
     display: none;
     width: 100%;
@@ -138,11 +186,11 @@ const handleLogout = async () => {
     padding: 1rem 0;
     margin-top: 1rem;
   }
-  
+
   .nav-links.show {
     display: flex;
   }
-  
+
   .custom-navbar {
     padding: 1rem;
   }

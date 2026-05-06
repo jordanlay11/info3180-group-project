@@ -99,7 +99,7 @@ export default {
         const data = await response.json();
 
         if (response.status === 200 && data.success) {
-          this.$router.push('/dashboard');
+          window.location.href = '/dashboard';
         } else {
           this.error = data.error || "Login failed. Please try again.";
         }

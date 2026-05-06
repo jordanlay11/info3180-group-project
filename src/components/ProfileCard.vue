@@ -109,6 +109,7 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 // Check if profile is already liked
 const checkLikeStatus = async () => {
+  if (!props.profile?.id) return
   try {
     const response = await fetch(`${apiUrl}/api/liked/check/${props.profile.id}`, {
       credentials: 'include'
@@ -124,6 +125,7 @@ const checkLikeStatus = async () => {
 
 // Check if profile is favorited
 const checkFavoriteStatus = async () => {
+  if (!props.profile?.id) return
   try {
     const response = await fetch(`${apiUrl}/api/favorites/check/${props.profile.id}`, {
       credentials: 'include'
@@ -139,6 +141,7 @@ const checkFavoriteStatus = async () => {
 
 // Toggle favorite
 const toggleFavorite = async () => {
+  if (!props.profile?.id) return
   try {
     if (isFavorited.value) {
       const response = await fetch(`${apiUrl}/api/favorites/${props.profile.id}`, {
@@ -168,6 +171,7 @@ const toggleFavorite = async () => {
 
 const handleLike = async () => {
   // If already liked, this is an UNLIKE action
+  if (!props.profile?.id) return 
   if (isLiked.value) {
     try {
       const response = await fetch(`${apiUrl}/api/unlike/${props.profile.id}`, {
@@ -208,6 +212,7 @@ const handleLike = async () => {
 
 // Handle Pass
 const handlePass = async () => {
+  if (!props.profile?.id) return
   try {
     await fetch(`${apiUrl}/api/pass/${props.profile.id}`, {
       method: 'POST',
@@ -239,18 +244,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.profile-card {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.profile-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
 
 .card-image {
   position: relative;

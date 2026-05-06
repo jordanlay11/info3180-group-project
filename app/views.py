@@ -8,8 +8,7 @@ This file creates your application.
 from app import app, db
 from flask import render_template, request, jsonify, send_file, session, url_for
 import os
-from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report 
-#from . import db
+from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report, Block 
 from app.forms import LoginForm, SignupForm
 from datetime import date, datetime  
 from werkzeug.utils import secure_filename
@@ -115,11 +114,20 @@ def signup():
         return jsonify({'error': 'Invalid request method'}), 405
 
 
+#@app.route('/logout', methods=['POST'])
+#def logout():
+ #   session.clear()
+  #  return jsonify({'success': 'Logged out successfully'}), 200
+
+
 @app.route('/logout', methods=['POST'])
 def logout():
+    # Clear the session on server side
     session.clear()
-    return jsonify({'success': 'Logged out successfully'}), 200
-
+    # Return response that instructs browser to delete the cookie
+    response = jsonify({'success': 'Logged out successfully'})
+    response.set_cookie('session', '', expires=0)
+    return response
 
 ##########################################################################
 
@@ -640,13 +648,16 @@ def unlike_profile(profile_id):
     # Delete the like
     db.session.delete(like)
     
-    # If it was a mutual match, also delete the match record
+    # If it was a mutual match, also delete the match record and associated messages
     if mutual:
         match = Match.query.filter(
             ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
             ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
         ).first()
         if match:
+            # Delete all messages associated with this match first
+            Message.query.filter_by(match_id=match.id).delete()
+            # Then delete the match
             db.session.delete(match)
     
     db.session.commit()
@@ -821,14 +832,6 @@ def get_profile_photo(filename):
     return send_from_directory(uploads_dir, filename)
 
 
-
-
-
-
-
-
-
-
 @app.before_request
 def check_valid_session():
     """Check if session user_id still exists in database"""
@@ -842,9 +845,251 @@ def check_valid_session():
             if not request.path.startswith('/api/'):
                 return redirect(url_for('login'))
             
+######################### Messages Endpoints #########################
+@app.route('/api/messages/chats', methods=['GET'])
+def get_chats():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user_id) |
+        (Match.user2_id == current_user_id)
+    ).all()
+
+    chats = []
+
+    for match in matches:
+        last_message = Message.query.filter_by(match_id=match.id)\
+            .order_by(Message.sent_at.desc())\
+            .first()
+
+        if last_message:
+            other_user_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+            user = User.query.get(other_user_id)
+
+            chats.append({
+                'match_id': match.id,
+                'name': f"{user.fname} {user.lname}",
+                'receiver_id': other_user_id,
+                'last_message': last_message.content,
+                'sent_at': last_message.sent_at
+            })
+
+    chats.sort(key=lambda x: x['sent_at'], reverse=True)
+
+    return jsonify({
+        'success': True,
+        'data': chats
+    }), 200
+
+@app.route('/api/messages/matches', methods=['GET'])
+def get_message_matches():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user_id) |
+        (Match.user2_id == current_user_id)
+    ).all()
+
+    results = []
+
+    for match in matches:
+        has_message = Message.query.filter_by(match_id=match.id).first()
+
+        if not has_message:
+            other_user_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+            user = User.query.get(other_user_id)
+
+            results.append({
+                'match_id': match.id,
+                'name': f"{user.fname} {user.lname}",
+                'receiver_id': other_user_id
+            })
+
+    return jsonify({
+        'success': True,
+        'data': results
+    }), 200
+
+@app.route('/api/messages/conversation/<int:match_id>', methods=['GET'])
+def get_conversation(match_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    match = Match.query.get(match_id)
+
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+
+    if current_user_id not in [match.user1_id, match.user2_id]:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    messages = Message.query.filter_by(match_id=match_id)\
+        .order_by(Message.sent_at.asc())\
+        .all()
+
+    # Filter out messages from blocked users
+    blocked_user_ids = [b.blocked_id for b in Block.query.filter_by(blocker_id=current_user_id).all()]
+    filtered_messages = [msg for msg in messages if msg.from_user_id not in blocked_user_ids]
+
+    return jsonify({
+        'success': True,
+        'data': [
+            {
+                'id': msg.id,
+                'content': msg.content,
+                'from_user_id': msg.from_user_id,
+                'to_user_id': msg.to_user_id,
+                'sent_at': msg.sent_at,
+                'is_read': msg.is_read
+            }
+            for msg in filtered_messages
+        ]
+    }), 200
+
+@app.route('/api/messages/send/<int:match_id>', methods=['POST'])
+def send_message(match_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    content = data.get('content')
+
+    if not content:
+        return jsonify({'error': 'Message content required'}), 400
+
+    match = Match.query.get(match_id)
+
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+
+    if current_user_id not in [match.user1_id, match.user2_id]:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Determine receiver automatically (DO NOT trust frontend)
+    receiver_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+
+    # Check if receiver is blocked by sender
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=receiver_id).first()
+    if block:
+        return jsonify({'error': 'Cannot send message to blocked user'}), 403
+
+    message = Message(
+        match_id=match_id,
+        from_user_id=current_user_id,
+        to_user_id=receiver_id,
+        content=content
+    )
+
+    db.session.add(message)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': message.id,
+            'content': message.content,
+            'from_user_id': message.from_user_id,
+            'to_user_id': message.to_user_id,
+            'sent_at': message.sent_at
+        }
+    }), 201
 
 
+@app.route('/api/user/me', methods=['GET'])
+def get_current_user():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
 
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'fname': user.fname,
+            'lname': user.lname
+        }
+    }), 200
+
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    return jsonify({'id': user.id}), 200
+
+
+@app.route('/api/block/<int:user_id>', methods=['POST'])
+def block_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot block yourself'}), 400
+
+    existing_block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if existing_block:
+        return jsonify({'error': 'User already blocked'}), 409
+
+    block = Block(blocker_id=current_user_id, blocked_id=user_id)
+    db.session.add(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User blocked'}), 201
+
+
+@app.route('/api/unblock/<int:user_id>', methods=['POST'])
+def unblock_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if not block:
+        return jsonify({'error': 'User not blocked'}), 404
+
+    db.session.delete(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User unblocked'}), 200
+
+
+@app.route('/api/report/<int:user_id>', methods=['POST'])
+def report_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    reason = data.get('reason', '').strip()
+    if not reason:
+        return jsonify({'error': 'Reason is required'}), 400
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot report yourself'}), 400
+
+    report = Report(reporter_id=current_user_id, reported_id=user_id, reason=reason)
+    db.session.add(report)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User reported'}), 201
 
 
 
