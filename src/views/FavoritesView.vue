@@ -2,7 +2,7 @@
   <div class="favorites-container">
     <div class="favorites-header">
       <h1>❤️ Your Saved Profiles</h1>
-      <p>Profiles you've liked and saved</p>
+      <p>Profiles you've liked</p>
     </div>
 
     <div v-if="loading" class="loading-spinner">

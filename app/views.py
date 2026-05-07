@@ -293,9 +293,8 @@ def get_favorites():
                 photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
             
             results.append({
-                'favorite_id': fav.id,
-                'profile_id': profile.id,
                 'user_id': user.id,
+                'id': user.id, 
                 'username': user.username,
                 'name': f"{user.fname} {user.lname}",
                 'age': user.age,
@@ -1299,7 +1298,12 @@ def add_header(response):
     return response
 
 
+
 @app.errorhandler(404)
 def page_not_found(error):
-    """Custom 404 page."""
-    return render_template('404.html'), 404
+    """Return JSON for 404 errors since this is an API"""
+    return jsonify({
+        'success': False,
+        'error': 'Resource not found',
+        'message': 'The requested URL does not exist'
+    }), 404
