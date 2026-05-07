@@ -88,6 +88,9 @@ class Profile(db.Model):
     preferred_location_radius = db.Column(db.Integer, default=50)
     preferred_age_min = db.Column(db.Integer, default=18)
     preferred_age_max = db.Column(db.Integer, default=99)
+    looking_for_gender = db.Column(db.String(20), default='all')
+    profile_views = db.Column(db.Integer, default=0)
+    
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
     

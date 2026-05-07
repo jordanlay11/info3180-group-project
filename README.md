@@ -48,11 +48,14 @@ pip install -r requirements.txt
 
 #### 2.3 Configure environment variables
 
+Copy the below and change the database and ports
+
 
 FLASK_DEBUG=True
 FLASK_RUN_HOST=0.0.0.0
 FLASK_RUN_PORT=8081
 SECRET_KEY="some_secret_key"
+UPLOAD_FOLDER =uploads
 DATABASE_URL=postgresql://user:password@localhost/database_name
 
 
