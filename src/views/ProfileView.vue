@@ -31,7 +31,7 @@
           <p class="handle">@{{ profile.username }}</p>
           <div class="meta-pills">
             <span class="pill">🎂 {{ age }} years old</span>
-            <span class="pill">📍 {{ profile.parish || 'Location not set' }}</span>
+            <span class="pill">📍 {{ profile.location || 'Location not set' }}</span>
             <span class="pill">{{ genderLabel }}</span>
           </div>
         </div>
@@ -41,13 +41,6 @@
           ✏️ Edit Profile
         </button>
 
-        <!-- Other user's profile: show Like / Favourite buttons -->
-        <div v-else class="action-buttons">
-          <button class="btn-like" @click="likeProfile">❤️ Like</button>
-          <button class="btn-favourite" @click="toggleFavourite">
-            {{ isFavourited ? '🔖 Saved' : '🔖 Save' }}
-          </button>
-        </div>
       </div>
 
       <!-- BODY -->
@@ -82,17 +75,17 @@
           <div class="prefs-grid">
             <div class="pref-item">
               <span class="pref-label">Interested In</span>
-              <span class="pref-value">{{ profile.looking_for || 'Any' }}</span>
+              <span class="pref-value">{{ lookingForGenderLabel }}</span>
             </div>
             <div class="pref-item">
               <span class="pref-label">Age Range</span>
               <span class="pref-value">
-                {{ profile.preferred_age_min || '18' }}–{{ profile.preferred_age_max || '99' }}
+                {{ profile.preferred_age_min || 18 }}–{{ profile.preferred_age_max || 99 }}
               </span>
             </div>
             <div class="pref-item">
               <span class="pref-label">Max Distance</span>
-              <span class="pref-value">{{ profile.max_distance || '50' }} km</span>
+              <span class="pref-value">{{ profile.max_distance || 50 }} km</span>
             </div>
           </div>
         </section>
@@ -123,51 +116,71 @@
 
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const route  = useRoute()
+const route = useRoute()
 const router = useRouter()
 
-// Matches the group's pattern from Favorites.vue
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081'
 
-const profile      = ref({})
-const loading      = ref(true)
-const error        = ref(null)
+const profile = ref({})
+const loading = ref(true)
+const error = ref(null)
 const isFavourited = ref(false)
+const currentUserId = ref(null)
 
 // ── COMPUTED ──────────────────────────────────────────────────────────────
 
-const loggedInUserId = computed(() => Number(localStorage.getItem('user_id')))
+// Get current logged-in user ID
+const getCurrentUserId = async () => {
+  try {
+    const response = await fetch(`${apiUrl}/api/user/me`, {
+      credentials: 'include'
+    })
+    const data = await response.json()
+    if (data.success) {
+      currentUserId.value = data.data.id
+    }
+  } catch (error) {
+    console.error('Error getting current user:', error)
+  }
+}
 
+// Get profile ID from route params
+const profileIdFromRoute = computed(() => route.params.id ? parseInt(route.params.id) : null)
 
-// Always show own profile
-const isOwnProfile = computed(() => true)
+// Check if viewing own profile
+const isOwnProfile = computed(() => {
+  // If no ID in route, it's the current user's own profile
+  if (!profileIdFromRoute.value) return true
+  // Otherwise, check if the ID matches the logged-in user
+  return profileIdFromRoute.value === currentUserId.value
+})
 
-// Handles both a full URL and a relative path returned by Flask
+// Profile photo URL
 const profilePhotoUrl = computed(() => {
-  const photo = profile.value.photo || profile.value.profile_photo || profile.value.photo_url
-  //if (!photo) return 'https://media.istockphoto.com/id/2221915585/vector/grey-avatar-icon-user-avatar-photo-icon-social-media-user-icon-vector.jpg'
-  //if (photo.startsWith('http')) return photo
-  return `${apiUrl}/${photo}`
+  const photo = profile.value.profile_photo
+  if (!photo) return '/default-avatar.png'
+  if (photo.startsWith('http')) return photo
+  return `${apiUrl}/api/uploads/${photo}`
 })
 
 const interestNames = computed(() => {
-  if (!profile.value.interests) return [];
+  if (!profile.value.interests) return []
   return profile.value.interests.map(i =>
     typeof i === 'object' ? (i.name || i.interest || '') : i
-  ).filter(Boolean);
-});
+  ).filter(Boolean)
+})
 
 const age = computed(() => {
-  const dob = profile.value.date_of_birth || profile.value.dob
+  const dob = profile.value.date_of_birth
   if (!dob) return '?'
   const birth = new Date(dob)
   if (isNaN(birth.getTime())) return '?'
   const today = new Date()
-  let years   = today.getFullYear() - birth.getFullYear()
-  const m     = today.getMonth() - birth.getMonth()
+  let years = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) years--
   return years
 })
@@ -177,85 +190,77 @@ const genderLabel = computed(() => {
   return map[profile.value.gender] || profile.value.gender || 'Not specified'
 })
 
-// ── METHODS ───────────────────────────────────────────────────────────────
+const lookingForGenderLabel = computed(() => {
+  const map = {
+    'male': '👨 Men',
+    'female': '👩 Women',
+    'all': '👥 Everyone'
+  }
+  return map[profile.value.looking_for_gender] || 'Everyone'
+})
 
-// const loadCurrentUser = async () => {
-//   try {
-//     const response = await fetch(`${apiUrl}/api/user/me`, {
-//       method: "GET",
-//       credentials: "include",
-//     });
-// 
-//     if (response.ok) {
-//       const data = await response.json();
-//       if (data.success && data.data) {
-//         userName.value = data.data.fname || data.data.username || "";
-//         isLoggedIn.value = true;
-//         return;
-//       }
-//     }
-//   } catch (error) {
-//     console.error("Fetch current user error:", error);
-//   }
-// 
-//   userName.value = "";
-//   isLoggedIn.value = false;
-// };
+// ── METHODS ───────────────────────────────────────────────────────────────
 
 async function fetchProfile() {
   loading.value = true
-  error.value   = null
+  error.value = null
+  
   try {
-    const url = `${apiUrl}/api/user/info`
-    const res  = await fetch(url, { method: "GET", credentials: 'include' })
-    if (res.ok){
+    let url
+    if (isOwnProfile.value || !profileIdFromRoute.value) {
+      // Fetch own profile
+      url = `${apiUrl}/api/user/info`
+    } else {
+      // Fetch other user's profile
+      url = `${apiUrl}/api/profile/${profileIdFromRoute.value}`
+    }
+    
+    const res = await fetch(url, { 
+      method: "GET", 
+      credentials: 'include' 
+    })
+    
+    if (res.ok) {
       const data = await res.json()
       if (data.success && data.data) {
+        const p = data.data
         profile.value = {
-          first_name : data.data.fname,
-          last_name : data.data.lname,
-          username : data.data.username,
-          bio : data.data.bio || data.data.description,
-          interests : data.data.interests || [], 
-          parish : data.data.location,
-          looking_for : data.data.gender_preference || '',
-          preferred_age_min : data.data.age_min || '',
-          preferred_age_max : data.data.age_max || '',
-          max_distance : data.data.max_distance || '',
-          match_count : data.data.match_count || 0,
-          likes_received : data.data.likes_received || 0,
-          profile_views : data.data.profile_views || 0,
-          gender : data.data.gender || 'Not Specified',
-          date_of_birth : data.data.dob || ''
+          id: p.id,
+          first_name: p.fname,
+          last_name: p.lname,
+          username: p.username,
+          bio: p.bio,
+          interests: p.interests || [],
+          location: p.location,
+          occupation: p.occupation,
+          zodiac_sign: p.zodiac_sign,
+          gender: p.gender,
+          date_of_birth: p.date_of_birth,
+          profile_photo: p.profile_photo,
+          visibility: p.visibility,
+          preferred_age_min: p.preferred_age_min,
+          preferred_age_max: p.preferred_age_max,
+          max_distance: p.preferred_location_radius,
+          match_count: p.match_count || 0,
+          likes_received: p.likes_received || 0,
+          profile_views: p.profile_views || 0,
+          looking_for_gender: p.looking_for_gender || 'all',
         }
+      } else {
+        error.value = data.error || 'Failed to load profile'
       }
+    } else if (res.status === 401) {
+      error.value = 'Please log in to view this profile'
+    } else if (res.status === 403) {
+      error.value = 'This profile is private'
+    } else if (res.status === 404) {
+      error.value = 'Profile not found'
+    } else {
+      error.value = 'Could not load profile'
     }
-    // // Handles both { success: true, data: {...} } and a plain object response
-    // let p = data.success ? data.data : data
-    // 
-    // // Map backend fields to frontend expectations for display
-    // profile.value = {
-    //   ...p,
-    //   first_name: p.first_name || p.fname || '',
-    //   last_name: p.last_name || p.lname || '',
-    //   username: p.username || p.handle || '',
-    //   bio: p.bio || p.description || '',
-    //   interests: p.interests || [],
-    //   parish: p.parish || p.location || '',
-    //   looking_for: p.looking_for || p.gender_preference || '',
-    //   preferred_age_min: p.preferred_age_min || p.age_min || '',
-    //   preferred_age_max: p.preferred_age_max || p.age_max || '',
-    //   max_distance: p.max_distance || '',
-    //   match_count: p.match_count || 0,
-    //   likes_received: p.likes_received || 0,
-    //   profile_views: p.profile_views || 0,
-    //   gender: p.gender || '',
-    //   date_of_birth: p.date_of_birth || p.dob || '',
-    // }
-
   } catch (err) {
-    error.value = 'Could not load profile. Please try again.'
     console.error('Error loading profile:', err)
+    error.value = 'Could not load profile. Please try again.'
   } finally {
     loading.value = false
   }
@@ -263,13 +268,14 @@ async function fetchProfile() {
 
 async function likeProfile() {
   try {
-    // NOTE: Confirm the like endpoint with your Backend Lead
-    const res  = await fetch(`${apiUrl}/api/users/${profileId.value}/like`, {
+    const res = await fetch(`${apiUrl}/api/like/${profile.value.id}`, {
       method: 'POST',
       credentials: 'include'
     })
     const data = await res.json()
-    if (data.success) alert('❤️ Liked!')
+    if (data.success && data.mutual_match) {
+      alert('🎉 It\'s a match!')
+    }
   } catch (err) {
     console.error('Error liking profile:', err)
   }
@@ -277,8 +283,7 @@ async function likeProfile() {
 
 async function toggleFavourite() {
   try {
-    // NOTE: Confirm the favourites endpoint with your Backend Lead
-    const res  = await fetch(`${apiUrl}/api/favorites/${profileId.value}`, {
+    const res = await fetch(`${apiUrl}/api/favorites/${profile.value.id}`, {
       method: isFavourited.value ? 'DELETE' : 'POST',
       credentials: 'include'
     })
@@ -289,17 +294,22 @@ async function toggleFavourite() {
   }
 }
 
-function goToEditProfile() {
-  // NOTE: Confirm the edit route name with whoever set up the router
-  router.push({ name: 'EditProfile', params: { id: profileId.value } })
+const goToEditProfile = () => {
+  router.push('/profile/edit')
 }
 
 function handleImageError(e) {
-  e.target.src = 'https://media.istockphoto.com/id/2221915585/vector/grey-avatar-icon-user-avatar-photo-icon-social-media-user-icon-vector.jpg'
+  e.target.src = '/default-avatar.png'
 }
 
-onMounted(() => {
+// Watch for route changes (when navigating from one profile to another)
+watch(() => route.params.id, () => {
   fetchProfile()
+})
+
+onMounted(async () => {
+  await getCurrentUserId()
+  await fetchProfile()
 })
 </script>
 
@@ -308,9 +318,11 @@ onMounted(() => {
   max-width: 800px;
   margin: 40px auto;
   padding: 20px;
+  background: var(--bg-primary);  /* Add this */
+  min-height: 100vh;
 }
 
-/* ── Loading / Error — matches Favorites.vue ── */
+/* Loading / Error */
 .loading-spinner {
   text-align: center;
   padding: 60px;
@@ -326,42 +338,29 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-@keyframes spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
 .empty-state {
   text-align: center;
   padding: 60px;
-  background: #f9f9f9;
+  background: var(--bg-card);
   border-radius: 16px;
+  border: 1px solid var(--border-color);
 }
 
 .empty-state p {
   margin-bottom: 15px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
-.btn-retry {
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-/* ── Profile Card ── */
+/* Profile Card */
 .profile-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 16px;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 20px var(--shadow);
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
-/* ── Hero Banner ── */
+/* Hero Banner - Keep gradient, but text uses variables */
 .hero-banner {
   background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
   padding: 2rem;
@@ -380,8 +379,6 @@ onMounted(() => {
   background: #ddd;
 }
 
-.hero-info { flex: 1; }
-
 .name {
   color: white;
   font-size: 1.8rem;
@@ -390,25 +387,29 @@ onMounted(() => {
 }
 
 .handle {
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
 }
 
-.meta-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.meta-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 
 .pill {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.25);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
   font-size: 0.85rem;
 }
 
-/* ── Buttons ── */
-.action-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-.btn-edit, .btn-like, .btn-favourite {
+/* Buttons */
+.btn-edit {
+  background: white;
+  color: #ff6b6b;
   padding: 0.5rem 1.25rem;
   border: none;
   border-radius: 999px;
@@ -418,19 +419,19 @@ onMounted(() => {
   transition: transform 0.15s, opacity 0.15s;
 }
 
-.btn-edit:hover, .btn-like:hover, .btn-favourite:hover {
+.btn-edit:hover {
   transform: scale(1.05);
   opacity: 0.9;
 }
 
-.btn-edit      { background: white; color: #ff6b6b; }
-.btn-like      { background: white; color: #ff6b6b; }
-.btn-favourite { background: rgba(255,255,255,0.2); color: white; border: 2px solid white; }
+/* Profile Body */
+.profile-body {
+  padding: 2rem;
+}
 
-/* ── Body ── */
-.profile-body { padding: 2rem; }
-
-.section { margin-bottom: 2rem; }
+.section {
+  margin-bottom: 2rem;
+}
 
 .section-title {
   font-size: 0.8rem;
@@ -441,10 +442,17 @@ onMounted(() => {
   margin-bottom: 0.75rem;
 }
 
-.bio { color: #333; line-height: 1.7; }
+.bio {
+  color: var(--text-primary);
+  line-height: 1.7;
+}
 
-/* ── Tags ── */
-.tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+/* Tags */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 
 .tag {
   background: #fff0f0;
@@ -455,9 +463,23 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.tag.muted { background: #f3f4f6; color: #9ca3af; }
+.tag.muted {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
 
-/* ── Preferences ── */
+/* Dark mode tags */
+.dark-mode .tag {
+  background: #0f3460;
+  color: #ff8e8e;
+}
+
+.dark-mode .tag.muted {
+  background: #2a2a4a;
+  color: #888;
+}
+
+/* Preferences Grid */
 .prefs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -465,8 +487,8 @@ onMounted(() => {
 }
 
 .pref-item {
-  background: #fff5f5;
-  border: 1px solid #ffd5d5;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 0.75rem 1rem;
 }
@@ -474,34 +496,62 @@ onMounted(() => {
 .pref-label {
   display: block;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.25rem;
 }
 
-.pref-value { font-size: 0.95rem; font-weight: 600; color: #333; }
+.pref-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
 
-/* ── Stats ── */
-.stats-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+/* Stats */
+.stats-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
 
 .stat {
   flex: 1;
   min-width: 100px;
-  background: #fff5f5;
-  border: 1px solid #ffd5d5;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 14px;
   padding: 1rem;
   text-align: center;
 }
 
-.stat-number { display: block; font-size: 2rem; font-weight: 800; color: #ff6b6b; }
-.stat-label  { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-number {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ff6b6b;
+}
 
-/* ── Responsive ── */
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .hero-banner    { flex-direction: column; text-align: center; }
-  .meta-pills     { justify-content: center; }
-  .action-buttons { justify-content: center; }
+  .hero-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+  .meta-pills {
+    justify-content: center;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

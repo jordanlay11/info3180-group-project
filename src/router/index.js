@@ -7,6 +7,8 @@ import FavoritesView from "../views/FavoritesView.vue";
 import MutualMatchesView from "../views/MutualMatchesView.vue";
 import MessageView from "../views/MessageView.vue";
 import ProfileView from "../views/ProfileView.vue";
+import EditProfileView from "../views/EditProfileView.vue";
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -48,6 +50,16 @@ const router = createRouter({
     name: 'Profile',
     component: ProfileView
     },
+    { 
+    path: '/profile/edit', 
+    name: 'EditProfile', 
+    component: EditProfileView 
+  },
+  {
+    path: '/profile/:id',
+    name: 'UserProfile',
+    component: () => import('../views/ProfileView.vue')
+    }
   ],
 });
 

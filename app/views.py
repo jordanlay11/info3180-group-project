@@ -1031,11 +1031,32 @@ def get_current_user_info():
     user = User.query.get(current_user_id)
     if not user:
         return jsonify({'error': 'User not found'}), 404
-
+    
+    profile = user.profile
+    if not profile:
+        # Create profile if it doesn't exist
+        profile = Profile(user_id=current_user_id)
+        db.session.add(profile)
+        db.session.commit()
+    
+    # Get interests
     interest_names = [i.interest for i in user.interests.all()]
-    match_count = None #[user.get_match_count()]
-    likes = None #user.likes_received.all()
-
+    
+    # Get match count - mutual matches only
+    # First, get users who liked current user
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    # Get users that current user liked
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    # Mutual matches = both conditions
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    match_count = len(mutual_match_ids)
+    
+    # Get likes received count (total, not just matches)
+    likes_received = Like.query.filter_by(to_user_id=current_user_id).count()
     
     return jsonify({
         'success': True,
@@ -1044,19 +1065,121 @@ def get_current_user_info():
             'username': user.username,
             'fname': user.fname,
             'lname': user.lname,
-            'gender' : user.gender,
-            'dob' : user.date_of_birth,
-            'interests' : interest_names,
-            'parish' : None,
-            'looking_for' : None,
-            'preferred_age_min' : None,
-            'preferred_age_max' : None,
-            'max_distance' : None,
-            'match_count' : match_count,
-            'likes_received' : likes,
-            'profile_views' : None
+            'email': user.email,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,
+            'bio': profile.bio,
+            'location': profile.location,
+            'occupation': profile.occupation,
+            'zodiac_sign': profile.zodiac_sign,
+            'interests': interest_names,
+            'profile_photo': profile.profile_photo if profile.profile_photo else None,
+            'visibility': profile.visibility,
+            'preferred_age_min': profile.preferred_age_min,
+            'preferred_age_max': profile.preferred_age_max,
+            'preferred_location_radius': profile.preferred_location_radius,
+            'match_count': match_count,
+            'likes_received': likes_received,
+            'looking_for_gender': profile.looking_for_gender if hasattr(profile, 'looking_for_gender') else 'all',
+            'profile_views': profile.profile_views or 0,
+            
         }
     }), 200
+
+@app.route('/api/profile/<int:user_id>', methods=['GET'])
+def get_other_user_profile(user_id):
+    """Get another user's public profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    profile = user.profile
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    if user_id != current_user_id:
+        profile.profile_views = (profile.profile_views or 0) + 1
+        db.session.commit()
+
+    # Check visibility (hide private profiles from other users)
+    if not profile.visibility and user_id != current_user_id:
+        return jsonify({'error': 'This profile is private'}), 403
+    
+    interests = [i.interest for i in user.interests.all()]
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'fname': user.fname,
+            'lname': user.lname,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,  # ✅ ADD THIS LINE
+            'age': user.age,  # This is a property, not a column
+            'bio': profile.bio,
+            'location': profile.location,
+            'occupation': profile.occupation,
+            'zodiac_sign': profile.zodiac_sign,
+            'interests': interests,
+            'profile_photo': profile.profile_photo,
+        }
+    }), 200
+
+
+@app.route('/api/profile/update', methods=['PUT'])
+def update_profile():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    user = User.query.get(current_user_id)
+    profile = user.profile if user else None
+    
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    # Update profile fields
+    if 'bio' in data:
+        profile.bio = data['bio']
+    if 'location' in data:
+        profile.location = data['location']
+    if 'occupation' in data:
+        profile.occupation = data['occupation']
+    if 'zodiac_sign' in data:
+        profile.zodiac_sign = data['zodiac_sign']
+    if 'visibility' in data:
+        profile.visibility = data['visibility']
+
+    if 'looking_for_gender' in data:
+        profile.looking_for_gender = data['looking_for_gender']
+    if 'preferred_age_min' in data:
+        profile.preferred_age_min = data['preferred_age_min']
+    if 'preferred_age_max' in data:
+        profile.preferred_age_max = data['preferred_age_max']
+    if 'preferred_location_radius' in data:
+        profile.preferred_location_radius = data['preferred_location_radius']
+    
+    # Update interests (replace existing)
+    if 'interests' in data:
+        # Delete old interests
+        Interest.query.filter_by(user_id=current_user_id).delete()
+        # Add new interests
+        for interest_name in data['interests']:
+            if interest_name and interest_name.strip():
+                interest = Interest(user_id=current_user_id, interest=interest_name.strip())
+                db.session.add(interest)
+    
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Profile updated successfully'}), 200
+
+
 
 
 @app.route('/api/block/<int:user_id>', methods=['POST'])

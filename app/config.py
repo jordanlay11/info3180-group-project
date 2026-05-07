@@ -7,7 +7,7 @@ class Config(object):
     """Base Config Object"""
     DEBUG = False
     SECRET_KEY = os.environ.get('SECRET_KEY', 'Som3$ec5etK*y')
-    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER')
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')

@@ -69,7 +69,8 @@
         <div class="occupation" v-if="profile.occupation">
           💼 {{ profile.occupation }}
         </div>
-        <button class="view-profile-btn">
+        <!-- View Profile Button - Now functional -->
+        <button @click="viewProfile" class="view-profile-btn">
           View Profile →
         </button>
       </div>
@@ -79,6 +80,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'  // ✅ Add this import
+
+const router = useRouter()  // ✅ Initialize router
 
 const props = defineProps({
   profile: {
@@ -104,6 +108,11 @@ const emit = defineEmits(['favorite-toggled', 'like', 'pass'])
 const isFavorited = ref(false)
 const isLiked = ref(false)
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
+// ✅ View Profile function
+const viewProfile = () => {
+  router.push(`/profile/${props.profile.id}`)
+}
 
 // Check if profile is already liked
 const checkLikeStatus = async () => {
