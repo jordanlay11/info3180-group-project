@@ -72,9 +72,9 @@
           <label for="gender">Gender</label>
           <select id="gender" v-model="formData.gender" required>
             <option value="" disabled>Select your gender</option>
-            <option value="m">Male</option>
-            <option value="f">Female</option>
-            <option value="o">Other</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="O">Other</option>
           </select>
         </div>
 
@@ -121,7 +121,8 @@ export default {
       error: "",
       successMessage: "",
       loading: false,
-      showPassword: false
+      showPassword: false,
+      apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:8081'  // ← ADD THIS
     };
   },
   methods: {
@@ -154,7 +155,6 @@ export default {
         return;
       }
 
-      
       if (!this.formData.fname || !this.formData.lname || !this.formData.username || !this.formData.gender || !this.formData.date_of_birth) {
         this.error = "Please fill in all fields.";
         return;
@@ -162,19 +162,29 @@ export default {
 
       this.loading = true;
 
-      
       try {
-        const response = await fetch('/register', {
+        // Map frontend field names to backend field names
+        const payload = {
+          first_name: this.formData.fname,     // ← Map fname to first_name
+          last_name: this.formData.lname,      // ← Map lname to last_name
+          username: this.formData.username,
+          email: this.formData.email,
+          password: this.formData.password,
+          gender: this.formData.gender,
+          date_of_birth: this.formData.date_of_birth
+        };
+
+        const response = await fetch(`${this.apiUrl}/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(this.formData)
+          body: JSON.stringify(payload)  // ← Send mapped payload
         });
 
         const data = await response.json();
 
-        if (response.status === 201 || data.message || data.success) {
+        if (response.status === 201) {
           this.successMessage = "Registration successful! Redirecting to login...";
           
           // Clear form

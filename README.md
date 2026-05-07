@@ -99,11 +99,6 @@ Go to your browser at this url
 
 http://localhost:5173
 
-Test user credentials:
-
-Email	            Password	   
-alice@example.com	password123	   
-bob@example.com	    password123	
 
 
 
@@ -134,21 +129,13 @@ json
 {
   "message": "User created successfully"
 }
-Error Responses:
+```
 
-400 Bad Request - Missing required fields
-
-400 Bad Request - Invalid date format
-
-400 Bad Request - Username already exists
-
-400 Bad Request - Email already exists
-
-Login
+### Login
 POST /login
 
 Request Body:
-
+```json
 json
 {
   "email": "john@example.com",
@@ -160,25 +147,25 @@ json
 {
   "success": "User logged in successfully"
 }
-Error Responses:
+```
 
-400 Bad Request - Incorrect email or password
-
-401 Unauthorized - Invalid credentials
-
-Logout
+### Logout
 POST /logout
 
+```json
 Response (200 OK):
 
 json
 {
   "success": "Logged out successfully"
 }
-User Endpoints
+```
+
+### User Endpoints
 Get current user basic info
 GET /api/user/me
 
+```json
 Response (200 OK):
 
 json
@@ -192,9 +179,12 @@ json
     "lname": "Doe"
   }
 }
-Get current user full profile
+```
+
+### Get current user full profile
 GET /api/user/info
 
+```json
 Response (200 OK):
 
 json
@@ -224,8 +214,12 @@ json
     "profile_views": 45
   }
 }
-Get another user's profile
+```
+
+### Get another user's profile
 GET /api/profile/{user_id}
+
+```json
 
 Parameters:
 
@@ -259,17 +253,13 @@ json
     "profile_views": 32
   }
 }
-Error Responses:
+```
 
-401 Unauthorized - Not logged in
 
-403 Forbidden - Profile is private
-
-404 Not Found - User or profile not found
-
-Update current user profile
+### Update current user profile
 PUT /api/profile/update
 
+```json
 Request Body:
 
 json
@@ -292,8 +282,13 @@ json
   "success": true,
   "message": "Profile updated successfully"
 }
-Upload profile photo
+
+```
+
+### Upload profile photo
 POST /api/profile/photo
+
+```json
 
 Request: multipart/form-data with field photo
 
@@ -305,8 +300,13 @@ json
   "message": "Profile photo uploaded",
   "photo_url": "/api/uploads/20250101_120000_photo.jpg"
 }
-Serve profile photo
+
+```
+
+### Serve profile photo
 GET /api/uploads/{filename}
+
+```json
 
 Returns the image file directly.
 
@@ -344,9 +344,12 @@ json
     }
   ]
 }
-Get latest matching profiles
+
+```
+### Get latest matching profiles
 GET /api/matching/latest
 
+```json 
 Response (200 OK):
 
 json
@@ -365,7 +368,11 @@ json
     }
   ]
 }
-Likes & Matches
+```
+
+### Likes & Matches
+
+```json 
 Like a profile
 POST /api/like/{profile_id}
 
@@ -392,9 +399,7 @@ json
     "name": "Alice"
   }
 }
-Error Responses:
 
-409 Conflict - Already liked this profile
 
 Unlike a profile
 DELETE /api/unlike/{profile_id}
@@ -459,9 +464,13 @@ json
   "success": true,
   "count": 5
 }
-Search & Discovery
+```
+
+### Search & Discovery
 Search profiles
 GET /api/search
+
+```json
 
 Query Parameters:
 
@@ -600,8 +609,13 @@ json
     }
   ]
 }
-Get conversation
+
+```
+
+### Get conversation
 GET /api/messages/conversation/{match_id}
+
+```json
 
 Response (200 OK):
 
@@ -702,7 +716,10 @@ json
   "success": true,
   "message": "User reported"
 }
+```
 
 
-
-## Known Limitations
+## Challenges Faced
+1. Pulling and pushing to github
+2. Implementing the hide/show password feature
+3. Showing the notification for a mutual match
