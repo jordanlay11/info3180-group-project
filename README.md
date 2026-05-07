@@ -46,7 +46,13 @@ source venv/bin/activate
 #### 2.2 Install backend dependencies
 pip install -r requirements.txt
 
-#### 2.3 Configure environment variables
+#### 2.3 Create database
+Create database in pgadmin or using the way you have done it in the labs
+ensure that the user you are assigning to the database haa a password
+
+The database password and name is needed for the next step
+
+#### 2.4 Configure environment variables
 Create a .env file in the root of the project
 Copy the below and change the database and ports
 
@@ -60,14 +66,13 @@ DATABASE_URL=postgresql://user:password@localhost/database_name
 
 
 VITE_BACKEND_PORT=8081
-
-# Frontend settings 
+ 
 VITE_API_URL=http://localhost:8081
 
 NB. All ports must be the same number
 
 
-#### 2.4 Initialize database 
+#### 2.4 Sync database 
 flask db upgrade
 
 #### 2.5 Seed database with test data
