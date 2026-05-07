@@ -93,7 +93,7 @@
       </div>
     </div>
 
-    <!-- Results Section (Search Results) - Only visible when hasSearched is true -->
+    <!-- Results Section (Search Results) -->
     <div v-if="hasSearched" class="results-section">
       <div class="results-header">
         <div class="results-header-left">
@@ -127,7 +127,7 @@
       </div>
     </div>
 
-    <!-- Recommendations Section - Only visible when NOT searching (hasSearched is false) -->
+    <!-- Recommendations Section  -->
     <div v-if="!hasSearched" class="recommendations-section">
       <div class="section-header">
         <h2>Matches For You ✨</h2>
@@ -185,7 +185,7 @@ const filters = reactive({
   sort_by: 'newest'
 })
 
-// Watch interests_array to update interests string
+// 
 watch(() => filters.interests_array, (newVal) => {
   filters.interests = newVal.join(',')
 }, { deep: true })

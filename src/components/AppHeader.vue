@@ -9,7 +9,7 @@
         <div class="nav-links-wrapper">
           <div class="nav-links" :class="{ show: mobileMenuOpen }">
             <template v-if="isLoggedIn">
-              <!-- Dark Mode Toggle - BEFORE Browse -->
+              <!-- Dark Mode Toggle  -->
               <button @click="toggleDarkMode" class="dark-mode-btn">
                 {{ isDarkMode ? '☀️' : '🌙' }}
               </button>
