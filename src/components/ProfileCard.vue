@@ -43,12 +43,6 @@
         <span class="location">📍 {{ profile.location || 'Location not specified' }}</span>
       </div>
       
-      <!-- Match Reasons (Optional) -->
-      <div v-if="matchReasons && matchReasons.length" class="match-reasons">
-        <span v-for="reason in matchReasons.slice(0, 2)" :key="reason" class="reason-tag">
-          {{ reason }}
-        </span>
-      </div>
       
       <p class="bio">{{ truncateBio(profile.bio) }}</p>
       
@@ -69,7 +63,7 @@
         <div class="occupation" v-if="profile.occupation">
           💼 {{ profile.occupation }}
         </div>
-        <!-- View Profile Button - Now functional -->
+        
         <button @click="viewProfile" class="view-profile-btn">
           View Profile →
         </button>
@@ -80,9 +74,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'  // ✅ Add this import
+import { useRouter } from 'vue-router'  
 
-const router = useRouter()  // ✅ Initialize router
+const router = useRouter()  
 
 const props = defineProps({
   profile: {
@@ -109,7 +103,7 @@ const isFavorited = ref(false)
 const isLiked = ref(false)
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-// ✅ View Profile function
+// View Profile function
 const viewProfile = () => {
   router.push(`/profile/${props.profile.id}`)
 }
@@ -409,13 +403,7 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-/* Match Reasons */
-.match-reasons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0;
-}
+
 
 .reason-tag {
   background: #e8f5e9;

@@ -1110,6 +1110,17 @@ def get_other_user_profile(user_id):
         return jsonify({'error': 'This profile is private'}), 403
     
     interests = [i.interest for i in user.interests.all()]
+
+    # Calculate match count (mutual matches)
+    liked_by_others = Like.query.filter_by(to_user_id=user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    current_user_likes = Like.query.filter_by(from_user_id=user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    match_count = len(mutual_match_ids)
+    
+    # Calculate likes received
+    likes_received = Like.query.filter_by(to_user_id=user_id).count()
     
     return jsonify({
         'success': True,
@@ -1127,6 +1138,13 @@ def get_other_user_profile(user_id):
             'zodiac_sign': profile.zodiac_sign,
             'interests': interests,
             'profile_photo': profile.profile_photo,
+            'preferred_age_min': profile.preferred_age_min,
+            'preferred_age_max': profile.preferred_age_max,
+            'preferred_location_radius': profile.preferred_location_radius,
+            'looking_for_gender': profile.looking_for_gender if hasattr(profile, 'looking_for_gender') else 'all',
+            'match_count': match_count,
+            'likes_received': likes_received,
+            'profile_views': profile.profile_views or 0,
         }
     }), 200
 
