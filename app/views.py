@@ -5,20 +5,1258 @@ Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
 
-from app import app
-from flask import render_template, request, jsonify, send_file
+from app import app, db
+from flask import render_template, request, jsonify, send_file, session, url_for
 import os
-from app.models import User, Profile, Interest, Like, Match, Message, Report
-from . import db
+from app.models import Favorite, Pass, User, Profile, Interest, Like, Match, Message, Report, Block 
+from app.forms import LoginForm, SignupForm
+from datetime import date, datetime  
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from datetime import datetime
+from flask import  redirect, url_for
 
 
 ###
 # Routing for your application.
 ###
 
+def calculate_age(birth_date):
+    """Calculate age from date of birth"""
+    if not birth_date:
+        return None
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")
+
+
+#login route 
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    form = LoginForm()
+    if request.method == 'POST':
+        data = request.get_json()
+        password = data.get('password')
+        email = data.get('email')
+
+        if not email or not password:
+            return jsonify({'error': 'incorrect Email or Password'}), 400
+
+        user = User.query.filter_by(email=email).first()
+        
+        if user and user.check_password(password):
+            
+            session['user_id'] = user.id
+            session['username'] = user.username
+            
+            return jsonify({'success': 'User logged in successfully'}), 200
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+    return jsonify({'message': 'Please use POST to login'}), 405
+
+
+#signup route 
+@app.route('/register', methods=['POST', 'GET'])
+def signup():
+    form = SignupForm()
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        age = data.get('age')  
+        email = data.get('email')
+        gender = data.get('gender') 
+        date_of_birth = data.get('date_of_birth') 
+
+        
+        if not username or not password or not first_name or not last_name or not email or not gender or not date_of_birth:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already exists'}), 400
+            
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': 'Email already exists'}), 400
+
+        
+        try:
+            dob = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        new_user = User(
+            username=username,
+            email=email,
+            password=password,  
+            fname=first_name,
+            lname=last_name,
+            gender=gender,
+            date_of_birth=dob
+        )
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Create empty profile for the new user
+        new_profile = Profile(user_id=new_user.id)
+        db.session.add(new_profile)
+        db.session.commit()
+
+        return jsonify({'message': 'User created successfully'}), 201
+    else:
+        return jsonify({'error': 'Invalid request method'}), 405
+
+
+#@app.route('/logout', methods=['POST'])
+#def logout():
+ #   session.clear()
+  #  return jsonify({'success': 'Logged out successfully'}), 200
+
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    # Clear the session on server side
+    session.clear()
+
+    response = jsonify({'success': 'Logged out successfully'})
+    response.set_cookie('session', '', expires=0)
+    return response
+
+##########################################################################
+
+
+@app.route('/api/search', methods=['GET'])
+def search_profiles():
+    """
+    Search profiles with filters
+    """
+    
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({
+            'success': False,
+            'error': 'Authentication required. Please log in.'
+        }), 401
+    
+    # Get IDs of passed profiles
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    
+    location = request.args.get('location', '').strip()
+    min_age = request.args.get('min_age', type=int)
+    max_age = request.args.get('max_age', type=int)
+    interests_param = request.args.get('interests', '').strip()
+    occupation = request.args.get('occupation', '').strip()
+    sort_by = request.args.get('sort_by', 'newest')
+    
+    query = User.query.join(Profile, User.id == Profile.user_id).filter(
+        User.id != current_user_id,
+        User.id.notin_(passed_ids),
+        Profile.visibility == True  
+    )
+    
+    if location:
+        query = query.filter(Profile.location.ilike(f'%{location}%'))
+    
+    if occupation:
+        query = query.filter(Profile.occupation.ilike(f'%{occupation}%'))
+    
+    if min_age or max_age:
+        today = date.today()
+        
+        if max_age:
+            min_birth_date = date(today.year - max_age, today.month, today.day)
+            query = query.filter(User.date_of_birth >= min_birth_date)
+        
+        if min_age:
+            max_birth_date = date(today.year - min_age, today.month, today.day)
+            query = query.filter(User.date_of_birth <= max_birth_date)
+    
+    if interests_param:
+        interest_list = [i.strip() for i in interests_param.split(',')]
+        query = query.join(User.interests).filter(
+            Interest.interest.in_(interest_list)
+        ).distinct()
+    
+    if sort_by == 'newest':
+        query = query.order_by(User.created_at.desc())
+    elif sort_by == 'oldest':
+        query = query.order_by(User.created_at.asc())
+    elif sort_by == 'location_asc':
+        query = query.order_by(Profile.location.asc())
+    elif sort_by == 'location_desc':
+        query = query.order_by(Profile.location.desc())
+    
+    users = query.all()
+    
+    results = []
+    for user in users:
+        profile = user.profile
+        interests = [i.interest for i in user.interests]
+        age = calculate_age(user.date_of_birth)
+        
+        if min_age and age and age < min_age:
+            continue
+        if max_age and age and age > max_age:
+            continue
+        
+        # Build photo URL using url_for()
+        photo_url = None
+        if profile and profile.profile_photo:
+            photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+        
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'fname': user.fname,
+            'lname': user.lname,
+            'name': f"{user.fname} {user.lname}",
+            'age': age,
+            'gender': user.gender,
+            'location': profile.location if profile else None,
+            'bio': profile.bio if profile else None,
+            'interests': interests,
+            'occupation': profile.occupation if profile else None,
+            'zodiac_sign': profile.zodiac_sign if profile else None,
+            'photo_url': photo_url,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        })
+    
+    if sort_by == 'age_asc':
+        results.sort(key=lambda x: x['age'] if x['age'] is not None else 999)
+    elif sort_by == 'age_desc':
+        results.sort(key=lambda x: x['age'] if x['age'] is not None else 0, reverse=True)
+    
+    return jsonify({
+        'success': True,
+        'count': len(results),
+        'filters_applied': {
+            'location': location if location else None,
+            'min_age': min_age,
+            'max_age': max_age,
+            'interests': interests_param if interests_param else None,
+            'occupation': occupation if occupation else None,
+            'sort_by': sort_by
+        },
+        'data': results
+    }), 200
+
+
+@app.route('/api/search/interests', methods=['GET'])
+def get_all_interests():
+    """
+    
+    """
+    interests = db.session.query(Interest.interest).distinct().order_by(Interest.interest).all()
+    interest_list = [i[0] for i in interests]
+    
+    return jsonify({
+        'success': True,
+        'count': len(interest_list),
+        'data': interest_list
+    }), 200
+
+
+@app.route('/api/favorites', methods=['GET'])
+def get_favorites():
+    """
+    Get all favorited profiles for the current user
+    Returns list of profile objects with full details
+    """
+    # Get current logged-in user
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Get all favorites for this user
+    favorites = Favorite.query.filter_by(user_id=current_user_id).all()
+    
+    # Build response with profile details
+    results = []
+    for fav in favorites:
+        profile = fav.profile
+        user = profile.user if profile else None
+        
+        if profile and user:
+            # Get interests for this user
+            interests = [i.interest for i in user.interests]
+            
+            # Build photo URL using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
+            results.append({
+                'user_id': user.id,
+                'id': user.id, 
+                'username': user.username,
+                'name': f"{user.fname} {user.lname}",
+                'age': user.age,
+                'location': profile.location,
+                'bio': profile.bio,
+                'interests': interests,
+                'occupation': profile.occupation,
+                'zodiac_sign': profile.zodiac_sign,
+                'photo_url': photo_url,
+                'favorited_at': fav.created_at.isoformat() if fav.created_at else None
+            })
+    
+    return jsonify({
+        'success': True,
+        'count': len(results),
+        'data': results
+    }), 200
+
+
+@app.route('/api/favorites/<int:profile_id>', methods=['POST'])
+def add_favorite(profile_id):
+    """
+    Add a profile to favorites
+    """
+    # Get current logged-in user
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Check if profile exists
+    profile = Profile.query.get(profile_id)
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    # Check if already favorited
+    existing = Favorite.query.filter_by(
+        user_id=current_user_id,
+        profile_id=profile_id
+    ).first()
+    
+    if existing:
+        return jsonify({
+            'success': False,
+            'message': 'Profile already in favorites',
+            'favorite_id': existing.id
+        }), 409  # 409 Conflict
+    
+    # Create new favorite
+    favorite = Favorite(
+        user_id=current_user_id,
+        profile_id=profile_id
+    )
+    
+    db.session.add(favorite)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Profile added to favorites',
+        'favorite_id': favorite.id,
+        'profile_id': profile_id
+    }), 201
+
+
+@app.route('/api/favorites/<int:profile_id>', methods=['DELETE'])
+def remove_favorite(profile_id):
+    """
+    Remove a profile from favorites
+    """
+    # Get current logged-in user
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Find the favorite
+    favorite = Favorite.query.filter_by(
+        user_id=current_user_id,
+        profile_id=profile_id
+    ).first()
+    
+    if not favorite:
+        return jsonify({
+            'success': False,
+            'error': 'Favorite not found'
+        }), 404
+    
+    
+    db.session.delete(favorite)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Profile removed from favorites',
+        'profile_id': profile_id
+    }), 200
+
+
+@app.route('/api/favorites/check/<int:profile_id>', methods=['GET'])
+def check_favorite(profile_id):
+    """
+    Check if a profile is favorited by current user
+    Useful for frontend to show correct star/heart state
+    """
+    # Get current logged-in user
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Check if favorited
+    favorite = Favorite.query.filter_by(
+        user_id=current_user_id,
+        profile_id=profile_id
+    ).first()
+    
+    return jsonify({
+        'success': True,
+        'is_favorited': favorite is not None,
+        'favorite_id': favorite.id if favorite else None
+    }), 200
+
+
+# MATCHING SYSTEM ENDPOINTS
+# ================================================
+
+@app.route('/api/matching/recommendations', methods=['GET'])
+def get_recommendations():
+    """
+    Get recommended profiles based on matching algorithm
+    """
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    current_user = User.query.get(current_user_id)
+    current_profile = current_user.profile if current_user else None
+    
+    # Get IDs of users already liked or passed
+    liked_ids = [like.to_user_id for like in Like.query.filter_by(from_user_id=current_user_id).all()]
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    excluded_ids = set(liked_ids + passed_ids + [current_user_id])
+    
+    # Base query - exclude self, liked, passed
+    query = User.query.join(Profile).filter(
+        User.id.notin_(excluded_ids),
+        Profile.visibility == True
+    )
+    
+    recommendations = []
+    
+    for user in query.all():
+        profile = user.profile
+        if not profile:
+            continue
+            
+        match_score = 0
+        match_reasons = []
+        
+       
+        if current_profile and profile.location == current_profile.location:
+            match_score += 25
+            match_reasons.append('📍 Same location')
+        elif current_profile and profile.location:
+            match_score += 10
+            match_reasons.append('📍 Nearby')
+        
+        # ii) Age range preferences
+        user_age = user.age
+        if user_age:
+            
+            pref_min = current_profile.preferred_age_min if current_profile else 18
+            pref_max = current_profile.preferred_age_max if current_profile else 99
+            
+            if pref_min <= user_age <= pref_max:
+                match_score += 20
+                match_reasons.append(f'📅 Age {user_age} (within {pref_min}-{pref_max})')
+        
+        # iii) Shared interests
+        user_interests = set([i.interest for i in user.interests])
+        current_interests = set([i.interest for i in current_user.interests])
+        shared = user_interests & current_interests
+        shared_count = len(shared)
+        
+        if shared_count > 0:
+            match_score += shared_count * 10
+            match_reasons.append(f'⭐ {shared_count} shared interests: {", ".join(list(shared)[:3])}')
+        
+        # iv) Additional matching criterion: Occupation
+        if current_profile and profile.occupation:
+            if current_profile.occupation == profile.occupation:
+                match_score += 15
+                match_reasons.append('💼 Same occupation')
+        
+        
+        photo_url = None
+        if profile.profile_photo:
+            photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+       
+        if match_score > 0:
+            recommendations.append({
+                'profile': {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': f"{user.fname} {user.lname}",
+                    'age': user_age,
+                    'gender': user.gender,
+                    'location': profile.location,
+                    'bio': profile.bio,
+                    'interests': list(user_interests),
+                    'occupation': profile.occupation,
+                    'photo_url': photo_url
+                },
+                'match_score': match_score,
+                'match_reasons': match_reasons,
+                'shared_interests': list(shared)
+            })
+    
+    # Sort by match score (highest first)
+    recommendations.sort(key=lambda x: x['match_score'], reverse=True)
+    
+    return jsonify({
+        'success': True,
+        'count': len(recommendations),
+        'data': recommendations
+    }), 200
+
+
+@app.route('/api/matches', methods=['GET'])
+def get_matches():
+    """Get mutual matches (users who liked you back)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Users who liked current user
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    # Users that current user liked
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    # Mutual matches = both conditions
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    
+    matches = []
+    for user_id in mutual_match_ids:
+        user = User.query.get(user_id)
+        profile = user.profile if user else None
+        
+        if user and profile and profile.visibility:
+            
+            like = Like.query.filter_by(from_user_id=user_id, to_user_id=current_user_id).first()
+            
+            # Build photo URL using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
+            matches.append({
+                'id': user.id,
+                'username': user.username,
+                'name': f"{user.fname} {user.lname}",
+                'age': user.age,
+                'location': profile.location,
+                'bio': profile.bio,
+                'interests': [i.interest for i in user.interests],
+                'photo_url': photo_url,
+                'matched_at': like.created_at.isoformat() if like else None
+            })
+    
+    return jsonify({'success': True, 'data': matches}), 200
+
+
+@app.route('/api/like/<int:profile_id>', methods=['POST'])
+def like_profile(profile_id):
+    """Like a profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    existing = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if existing:
+        return jsonify({'success': False, 'message': 'Already liked'}), 409
+    
+    new_like = Like(from_user_id=current_user_id, to_user_id=profile_id)
+    db.session.add(new_like)
+    db.session.commit()
+    
+    # Check if mutual match (they liked you back)
+    mutual = Like.query.filter_by(
+        from_user_id=profile_id,
+        to_user_id=current_user_id
+    ).first()
+    
+    
+    match_created = None
+    if mutual:
+        # Check if match already exists
+        existing_match = Match.query.filter(
+            ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
+            ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
+        ).first()
+        
+        if not existing_match:
+            new_match = Match(user1_id=current_user_id, user2_id=profile_id)
+            db.session.add(new_match)
+            db.session.commit()
+            match_created = new_match.id
+            print(f"✅ Match created between {current_user_id} and {profile_id}")
+    
+    return jsonify({
+        'success': True,
+        'message': 'Liked!',
+        'mutual_match': mutual is not None,
+        'match_id': match_created,
+        'match_user': {
+            'id': mutual.from_user_id if mutual else None,
+            'name': User.query.get(profile_id).fname if mutual else None
+        } if mutual else None
+    }), 201
+
+
+
+@app.route('/api/unlike/<int:profile_id>', methods=['DELETE'])
+def unlike_profile(profile_id):
+    """Remove a like from a profile (unlike/unmatch)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Find the like
+    like = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if not like:
+        return jsonify({'error': 'Like not found'}), 404
+    
+    # Check if it was a mutual match (they also liked you)
+    mutual = Like.query.filter_by(
+        from_user_id=profile_id,
+        to_user_id=current_user_id
+    ).first()
+    
+    # Delete the like
+    db.session.delete(like)
+    
+    # If it was a mutual match, also delete the match record and associated messages
+    if mutual:
+        match = Match.query.filter(
+            ((Match.user1_id == current_user_id) & (Match.user2_id == profile_id)) |
+            ((Match.user1_id == profile_id) & (Match.user2_id == current_user_id))
+        ).first()
+        if match:
+            # Delete all messages associated with this match first
+            Message.query.filter_by(match_id=match.id).delete()
+            # Then delete the match
+            db.session.delete(match)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Like removed',
+        'was_mutual': mutual is not None
+    }), 200
+
+
+@app.route('/api/pass/<int:profile_id>', methods=['POST'])
+def pass_profile(profile_id):
+    """Pass on a profile (won't show again)"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    
+    existing = Pass.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    if not existing:
+        new_pass = Pass(from_user_id=current_user_id, to_user_id=profile_id)
+        db.session.add(new_pass)
+        db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Passed'}), 200
+
+
+@app.route('/api/matches/count', methods=['GET'])
+def get_match_count():
+    """Get count of mutual matches"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    mutual_match_count = len(set(liked_by_others_ids) & set(current_user_likes_ids))
+    
+    return jsonify({'success': True, 'count': mutual_match_count}), 200
+
+
+@app.route('/api/matching/latest', methods=['GET'])
+def get_latest_matching_profiles():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+     # Get IDs of passed profiles
+    passed_ids = [p.to_user_id for p in Pass.query.filter_by(from_user_id=current_user_id).all()]
+    excluded_ids = set(passed_ids + [current_user_id])
+
+    query = User.query.join(Profile).filter(
+        User.id != current_user_id,
+        User.id.notin_(excluded_ids),
+        Profile.visibility == True
+    ).order_by(User.created_at.desc()).limit(20)
+    
+    results = []
+    for user in query.all():
+        profile = user.profile
+        if profile:
+            # Build the full URL for photo using url_for()
+            photo_url = None
+            if profile.profile_photo:
+                photo_url = url_for('get_profile_photo', filename=profile.profile_photo)
+            
+            results.append({
+                'id': user.id,
+                'name': f"{user.fname} {user.lname}",
+                'age': user.age,
+                'location': profile.location,
+                'bio': profile.bio,
+                'interests': [i.interest for i in user.interests],
+                'photo_url': photo_url,
+                'occupation': profile.occupation
+            })
+    
+    return jsonify({'success': True, 'data': results}), 200
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def save_uploaded_file(file):
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+       
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_')
+        unique_filename = timestamp + filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+        return unique_filename
+    return None
+
+
+@app.route('/api/liked/check/<int:profile_id>', methods=['GET'])
+def check_liked(profile_id):
+    """Check if current user has liked a profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    liked = Like.query.filter_by(
+        from_user_id=current_user_id,
+        to_user_id=profile_id
+    ).first()
+    
+    return jsonify({
+        'success': True,
+        'is_liked': liked is not None
+    }), 200
+
+
+# ==========================================
+# UPLOAD ENDPOINT
+# ==========================================
+
+@app.route('/api/profile/photo', methods=['POST'])
+def upload_profile_photo():
+    """Upload profile picture for current user"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    if 'photo' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['photo']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    filename = save_uploaded_file(file)
+    if not filename:
+        return jsonify({'error': 'File type not allowed. Use JPG, PNG, or GIF'}), 400
+    
+    # Update user's profile
+    profile = Profile.query.filter_by(user_id=current_user_id).first()
+    if profile:
+        # Delete old photo if exists
+        if profile.profile_photo:
+            old_path = os.path.join(app.config['UPLOAD_FOLDER'], profile.profile_photo)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        profile.profile_photo = filename
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile photo uploaded',
+            'photo_url': url_for('get_profile_photo', filename=filename)
+        }), 200
+    
+    return jsonify({'error': 'Profile not found'}), 404
+
+
+@app.route('/api/uploads/<filename>')
+def get_profile_photo(filename):
+    """Serve profile pictures """
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    return send_from_directory(uploads_dir, filename)
+
+
+@app.before_request
+def check_valid_session():
+    """Check if session user_id still exists in database"""
+    if 'user_id' in session:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        if not user:
+           
+            session.clear()
+            
+            if not request.path.startswith('/api/'):
+                return redirect(url_for('login'))
+            
+######################### Messages Endpoints #########################
+@app.route('/api/messages/chats', methods=['GET'])
+def get_chats():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user_id) |
+        (Match.user2_id == current_user_id)
+    ).all()
+
+    chats = []
+
+    for match in matches:
+        last_message = Message.query.filter_by(match_id=match.id)\
+            .order_by(Message.sent_at.desc())\
+            .first()
+
+        if last_message:
+            other_user_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+            user = User.query.get(other_user_id)
+
+            chats.append({
+                'match_id': match.id,
+                'name': f"{user.fname} {user.lname}",
+                'receiver_id': other_user_id,
+                'last_message': last_message.content,
+                'sent_at': last_message.sent_at
+            })
+
+    chats.sort(key=lambda x: x['sent_at'], reverse=True)
+
+    return jsonify({
+        'success': True,
+        'data': chats
+    }), 200
+
+@app.route('/api/messages/matches', methods=['GET'])
+def get_message_matches():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user_id) |
+        (Match.user2_id == current_user_id)
+    ).all()
+
+    results = []
+
+    for match in matches:
+        has_message = Message.query.filter_by(match_id=match.id).first()
+
+        if not has_message:
+            other_user_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+            user = User.query.get(other_user_id)
+
+            results.append({
+                'match_id': match.id,
+                'name': f"{user.fname} {user.lname}",
+                'receiver_id': other_user_id
+            })
+
+    return jsonify({
+        'success': True,
+        'data': results
+    }), 200
+
+@app.route('/api/messages/conversation/<int:match_id>', methods=['GET'])
+def get_conversation(match_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    match = Match.query.get(match_id)
+
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+
+    if current_user_id not in [match.user1_id, match.user2_id]:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    messages = Message.query.filter_by(match_id=match_id)\
+        .order_by(Message.sent_at.asc())\
+        .all()
+
+    # Filter out messages from blocked users
+    blocked_user_ids = [b.blocked_id for b in Block.query.filter_by(blocker_id=current_user_id).all()]
+    filtered_messages = [msg for msg in messages if msg.from_user_id not in blocked_user_ids]
+
+    return jsonify({
+        'success': True,
+        'data': [
+            {
+                'id': msg.id,
+                'content': msg.content,
+                'from_user_id': msg.from_user_id,
+                'to_user_id': msg.to_user_id,
+                'sent_at': msg.sent_at,
+                'is_read': msg.is_read
+            }
+            for msg in filtered_messages
+        ]
+    }), 200
+
+@app.route('/api/messages/send/<int:match_id>', methods=['POST'])
+def send_message(match_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    content = data.get('content')
+
+    if not content:
+        return jsonify({'error': 'Message content required'}), 400
+
+    match = Match.query.get(match_id)
+
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+
+    if current_user_id not in [match.user1_id, match.user2_id]:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Determine receiver automatically (DO NOT trust frontend)
+    receiver_id = match.user1_id if match.user2_id == current_user_id else match.user2_id
+
+    # Check if receiver is blocked by sender
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=receiver_id).first()
+    if block:
+        return jsonify({'error': 'Cannot send message to blocked user'}), 403
+
+    message = Message(
+        match_id=match_id,
+        from_user_id=current_user_id,
+        to_user_id=receiver_id,
+        content=content
+    )
+
+    db.session.add(message)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': message.id,
+            'content': message.content,
+            'from_user_id': message.from_user_id,
+            'to_user_id': message.to_user_id,
+            'sent_at': message.sent_at
+        }
+    }), 201
+
+
+@app.route('/api/user/me', methods=['GET'])
+def get_current_user():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'fname': user.fname,
+            'lname': user.lname
+        }
+    }), 200
+
+@app.route('/api/user/info', methods=['GET'])
+def get_current_user_info():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    profile = user.profile
+    if not profile:
+        # Create profile if it doesn't exist
+        profile = Profile(user_id=current_user_id)
+        db.session.add(profile)
+        db.session.commit()
+    
+    # Get interests
+    interest_names = [i.interest for i in user.interests.all()]
+    
+    # Get match count - mutual matches only
+    # First, get users who liked current user
+    liked_by_others = Like.query.filter_by(to_user_id=current_user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    
+    # Get users that current user liked
+    current_user_likes = Like.query.filter_by(from_user_id=current_user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    
+    # Mutual matches = both conditions
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    match_count = len(mutual_match_ids)
+    
+    # Get likes received count (total, not just matches)
+    likes_received = Like.query.filter_by(to_user_id=current_user_id).count()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'fname': user.fname,
+            'lname': user.lname,
+            'email': user.email,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,
+            'bio': profile.bio,
+            'location': profile.location,
+            'occupation': profile.occupation,
+            'zodiac_sign': profile.zodiac_sign,
+            'interests': interest_names,
+            'profile_photo': profile.profile_photo if profile.profile_photo else None,
+            'visibility': profile.visibility,
+            'preferred_age_min': profile.preferred_age_min,
+            'preferred_age_max': profile.preferred_age_max,
+            'preferred_location_radius': profile.preferred_location_radius,
+            'match_count': match_count,
+            'likes_received': likes_received,
+            'looking_for_gender': profile.looking_for_gender if hasattr(profile, 'looking_for_gender') else 'all',
+            'profile_views': profile.profile_views or 0,
+            
+        }
+    }), 200
+
+@app.route('/api/profile/<int:user_id>', methods=['GET'])
+def get_other_user_profile(user_id):
+    """Get another user's public profile"""
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    profile = user.profile
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    if user_id != current_user_id:
+        profile.profile_views = (profile.profile_views or 0) + 1
+        db.session.commit()
+
+    # Check visibility (hide private profiles from other users)
+    if not profile.visibility and user_id != current_user_id:
+        return jsonify({'error': 'This profile is private'}), 403
+    
+    interests = [i.interest for i in user.interests.all()]
+
+    # Calculate match count (mutual matches)
+    liked_by_others = Like.query.filter_by(to_user_id=user_id).all()
+    liked_by_others_ids = [like.from_user_id for like in liked_by_others]
+    current_user_likes = Like.query.filter_by(from_user_id=user_id).all()
+    current_user_likes_ids = [like.to_user_id for like in current_user_likes]
+    mutual_match_ids = set(liked_by_others_ids) & set(current_user_likes_ids)
+    match_count = len(mutual_match_ids)
+    
+    # Calculate likes received
+    likes_received = Like.query.filter_by(to_user_id=user_id).count()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'username': user.username,
+            'fname': user.fname,
+            'lname': user.lname,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,  # ✅ ADD THIS LINE
+            'age': user.age,  # This is a property, not a column
+            'bio': profile.bio,
+            'location': profile.location,
+            'occupation': profile.occupation,
+            'zodiac_sign': profile.zodiac_sign,
+            'interests': interests,
+            'profile_photo': profile.profile_photo,
+            'preferred_age_min': profile.preferred_age_min,
+            'preferred_age_max': profile.preferred_age_max,
+            'preferred_location_radius': profile.preferred_location_radius,
+            'looking_for_gender': profile.looking_for_gender if hasattr(profile, 'looking_for_gender') else 'all',
+            'match_count': match_count,
+            'likes_received': likes_received,
+            'profile_views': profile.profile_views or 0,
+        }
+    }), 200
+
+
+@app.route('/api/profile/update', methods=['PUT'])
+def update_profile():
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    user = User.query.get(current_user_id)
+    profile = user.profile if user else None
+    
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    
+    # Update profile fields
+    if 'bio' in data:
+        profile.bio = data['bio']
+    if 'location' in data:
+        profile.location = data['location']
+    if 'occupation' in data:
+        profile.occupation = data['occupation']
+    if 'zodiac_sign' in data:
+        profile.zodiac_sign = data['zodiac_sign']
+    if 'visibility' in data:
+        profile.visibility = data['visibility']
+
+    if 'looking_for_gender' in data:
+        profile.looking_for_gender = data['looking_for_gender']
+    if 'preferred_age_min' in data:
+        profile.preferred_age_min = data['preferred_age_min']
+    if 'preferred_age_max' in data:
+        profile.preferred_age_max = data['preferred_age_max']
+    if 'preferred_location_radius' in data:
+        profile.preferred_location_radius = data['preferred_location_radius']
+    
+    # Update interests (replace existing)
+    if 'interests' in data:
+        # Delete old interests
+        Interest.query.filter_by(user_id=current_user_id).delete()
+        # Add new interests
+        for interest_name in data['interests']:
+            if interest_name and interest_name.strip():
+                interest = Interest(user_id=current_user_id, interest=interest_name.strip())
+                db.session.add(interest)
+    
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Profile updated successfully'}), 200
+
+
+
+
+@app.route('/api/block/<int:user_id>', methods=['POST'])
+def block_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot block yourself'}), 400
+
+    existing_block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if existing_block:
+        return jsonify({'error': 'User already blocked'}), 409
+
+    block = Block(blocker_id=current_user_id, blocked_id=user_id)
+    db.session.add(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User blocked'}), 201
+
+
+@app.route('/api/unblock/<int:user_id>', methods=['POST'])
+def unblock_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    block = Block.query.filter_by(blocker_id=current_user_id, blocked_id=user_id).first()
+    if not block:
+        return jsonify({'error': 'User not blocked'}), 404
+
+    db.session.delete(block)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User unblocked'}), 200
+
+
+@app.route('/api/report/<int:user_id>', methods=['POST'])
+def report_user(user_id):
+    current_user_id = session.get('user_id')
+    if not current_user_id:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json()
+    reason = data.get('reason', '').strip()
+    if not reason:
+        return jsonify({'error': 'Reason is required'}), 400
+
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot report yourself'}), 400
+
+    report = Report(reporter_id=current_user_id, reported_id=user_id, reason=reason)
+    db.session.add(report)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'User reported'}), 201
+
+
+
 
 
 ###
@@ -40,6 +1278,7 @@ def form_errors(form):
 
     return error_messages
 
+
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
     """Send your static text file."""
@@ -59,7 +1298,12 @@ def add_header(response):
     return response
 
 
+
 @app.errorhandler(404)
 def page_not_found(error):
-    """Custom 404 page."""
-    return render_template('404.html'), 404
+    """Return JSON for 404 errors since this is an API"""
+    return jsonify({
+        'success': False,
+        'error': 'Resource not found',
+        'message': 'The requested URL does not exist'
+    }), 404
